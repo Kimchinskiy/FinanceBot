@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="robots" content="noindex" />
+  <title>FinanceBot — Личный финансовый помощник</title>
+  <meta name="description" content="Умный помощник для учёта доходов, расходов и финансовой аналитики" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="tg.js"></script>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">💰</div>
+      <span class="logo-text">FinanceBot</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+        <span class="nav-icon">📊</span><span class="nav-label">Дашборд</span>
+      </a>
+      <a href="#" class="nav-item" data-page="income" id="nav-income">
+        <span class="nav-icon">📈</span><span class="nav-label">Доходы</span>
+      </a>
+      <a href="#" class="nav-item" data-page="expenses" id="nav-expenses">
+        <span class="nav-icon">📉</span><span class="nav-label">Расходы</span>
+      </a>
+      <a href="#" class="nav-item" data-page="mandatory" id="nav-mandatory">
+        <span class="nav-icon">🔒</span><span class="nav-label">Обязат. платежи</span>
+      </a>
+      <a href="#" class="nav-item" data-page="analytics" id="nav-analytics">
+        <span class="nav-icon">📋</span><span class="nav-label">Аналитика</span>
+      </a>
+      <a href="#" class="nav-item" data-page="settings" id="nav-settings">
+        <span class="nav-icon">⚙️</span><span class="nav-label">Настройки</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="salary-info" id="salary-sidebar">
+        <div class="salary-label">Следующая ЗП</div>
+        <div class="salary-date" id="salary-sidebar-date">—</div>
+        <div class="salary-amount" id="salary-sidebar-amount">—</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="topbar">
+      <button class="menu-toggle" id="menu-toggle">☰</button>
+      <div class="topbar-title" id="page-title">Дашборд</div>
+      <div class="topbar-actions">
+        <button class="btn-primary" id="quick-add-btn">+ Добавить</button>
+        <button class="btn-close-tg" id="close-tg-btn" title="Закрыть" style="display:none">✕</button>
+      </div>
+    </header>
+
+    <!-- Pages -->
+    <div class="page active" id="page-dashboard">
+      <!-- Balance Cards -->
+      <div class="cards-grid">
+        <div class="card card-balance card-green">
+          <div class="card-icon">💵</div>
+          <div class="card-body">
+            <div class="card-label">Общий баланс</div>
+            <div class="card-value" id="total-balance">0 ₽</div>
+            <div class="card-sub" id="balance-change">+0 за этот месяц</div>
+          </div>
+        </div>
+        <div class="card card-income card-blue">
+          <div class="card-icon">📈</div>
+          <div class="card-body">
+            <div class="card-label">Доходы (месяц)</div>
+            <div class="card-value" id="monthly-income">0 ₽</div>
+            <div class="card-sub" id="income-count">0 операций</div>
+          </div>
+        </div>
+        <div class="card card-expense card-red">
+          <div class="card-icon">📉</div>
+          <div class="card-body">
+            <div class="card-label">Расходы (месяц)</div>
+            <div class="card-value" id="monthly-expense">0 ₽</div>
+            <div class="card-sub" id="expense-count">0 операций</div>
+          </div>
+        </div>
+        <div class="card card-cash card-purple">
+          <div class="card-icon">💳</div>
+          <div class="card-body">
+            <div class="card-label">Наличные</div>
+            <div class="card-value" id="cash-amount">0 ₽</div>
+            <div class="card-sub">Обновите в настройках</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Salary countdown -->
+      <div class="salary-countdown-bar" id="salary-bar" style="display:none">
+        <div class="salary-bar-left">
+          <span class="salary-icon">🗓️</span>
+          <div>
+            <div class="salary-bar-title">До следующей зарплаты</div>
+            <div class="salary-bar-sub" id="salary-bar-sub">—</div>
+          </div>
+        </div>
+        <div class="salary-bar-right">
+          <div class="days-chip" id="salary-days-chip">—</div>
+          <div class="salary-expected" id="salary-expected">—</div>
+        </div>
+      </div>
+
+      <!-- Recent + Mandatory -->
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header">
+            <span>Последние операции</span>
+            <button class="link-btn" data-page="expenses">Все →</button>
+          </div>
+          <div class="transactions-list" id="recent-transactions">
+            <div class="empty-state">Нет операций. Добавьте первую!</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <span>Обязательные платежи</span>
+            <button class="link-btn" data-page="mandatory">Все →</button>
+          </div>
+          <div class="mandatory-list" id="dashboard-mandatory">
+            <div class="empty-state">Нет обязательных платежей</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mini chart -->
+      <div class="panel chart-panel">
+        <div class="panel-header"><span>Доходы vs Расходы (30 дней)</span></div>
+        <canvas id="dashChart" height="80"></canvas>
+      </div>
+    </div>
+
+    <!-- INCOME PAGE -->
+    <div class="page" id="page-income">
+      <div class="page-actions">
+        <button class="btn-primary" id="add-income-btn">+ Добавить доход</button>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span>Все доходы</span>
+          <div class="filter-row">
+            <select id="income-filter-month" class="filter-select">
+              <option value="">Все месяцы</option>
+            </select>
+            <select id="income-filter-cat" class="filter-select">
+              <option value="">Все категории</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="income-table">
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Категория</th>
+                <th>Описание</th>
+                <th>Сумма</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="income-tbody">
+              <tr><td colspan="5" class="empty-cell">Нет доходов</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPENSES PAGE -->
+    <div class="page" id="page-expenses">
+      <div class="page-actions">
+        <button class="btn-primary" id="add-expense-btn">+ Добавить расход</button>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span>Все расходы</span>
+          <div class="filter-row">
+            <select id="expense-filter-month" class="filter-select">
+              <option value="">Все месяцы</option>
+            </select>
+            <select id="expense-filter-cat" class="filter-select">
+              <option value="">Все категории</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="expense-table">
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Категория</th>
+                <th>Описание</th>
+                <th>Сумма</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="expense-tbody">
+              <tr><td colspan="5" class="empty-cell">Нет расходов</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANDATORY PAGE -->
+    <div class="page" id="page-mandatory">
+      <div class="page-actions">
+        <button class="btn-primary" id="add-mandatory-btn">+ Добавить платёж</button>
+      </div>
+      <div class="mandatory-cards" id="mandatory-cards">
+        <div class="empty-state">Нет обязательных платежей. Добавьте первый!</div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS PAGE -->
+    <div class="page" id="page-analytics">
+      <div class="analytics-period">
+        <label>Период:</label>
+        <select id="analytics-period" class="filter-select">
+          <option value="month">Этот месяц</option>
+          <option value="3month">3 месяца</option>
+          <option value="6month">6 месяцев</option>
+          <option value="year">Год</option>
+          <option value="all">Всё время</option>
+        </select>
+      </div>
+      <div class="analytics-cards">
+        <div class="acard">
+          <div class="acard-label">Доходы</div>
+          <div class="acard-val green" id="an-income">0 ₽</div>
+        </div>
+        <div class="acard">
+          <div class="acard-label">Расходы</div>
+          <div class="acard-val red" id="an-expense">0 ₽</div>
+        </div>
+        <div class="acard">
+          <div class="acard-label">Прибыль</div>
+          <div class="acard-val" id="an-profit">0 ₽</div>
+        </div>
+        <div class="acard">
+          <div class="acard-label">Обяз. платежи</div>
+          <div class="acard-val orange" id="an-mandatory">0 ₽</div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><span>Расходы по категориям</span></div>
+          <canvas id="expensePieChart" height="200"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><span>Доходы по категориям</span></div>
+          <canvas id="incomePieChart" height="200"></canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span>Динамика баланса</span></div>
+        <canvas id="balanceChart" height="80"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span>Доходы vs Расходы по месяцам</span></div>
+        <canvas id="monthlyBarChart" height="80"></canvas>
+      </div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div class="page" id="page-settings">
+      <div class="settings-grid">
+        <div class="panel">
+          <div class="panel-header"><span>💵 Наличные</span></div>
+          <div class="settings-form">
+            <label>Сумма наличных (₽)</label>
+            <input type="number" id="cash-input" class="input-field" placeholder="0" />
+            <button class="btn-primary" id="save-cash">Сохранить</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><span>💼 Зарплата</span></div>
+          <div class="settings-form">
+            <label>День выплаты ЗП (1–31)</label>
+            <input type="number" id="salary-day-input" class="input-field" placeholder="5" min="1" max="31" />
+            <label>Размер ЗП (₽)</label>
+            <input type="number" id="salary-amount-input" class="input-field" placeholder="0" />
+            <label>Периодичность</label>
+            <select id="salary-period-input" class="input-field">
+              <option value="monthly">Ежемесячно</option>
+              <option value="biweekly">Каждые 2 недели</option>
+            </select>
+            <button class="btn-primary" id="save-salary">Сохранить</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><span>🏷️ Категории доходов</span></div>
+          <div class="settings-form">
+            <div class="category-chips" id="income-categories">
+            </div>
+            <div class="add-category-row">
+              <input type="text" id="new-income-cat" class="input-field" placeholder="Новая категория" />
+              <button class="btn-outline" id="add-income-cat-btn">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><span>🏷️ Категории расходов</span></div>
+          <div class="settings-form">
+            <div class="category-chips" id="expense-categories">
+            </div>
+            <div class="add-category-row">
+              <input type="text" id="new-expense-cat" class="input-field" placeholder="Новая категория" />
+              <button class="btn-outline" id="add-expense-cat-btn">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel panel-danger">
+          <div class="panel-header"><span>⚠️ Данные</span></div>
+          <div class="settings-form">
+            <p class="text-muted">Экспорт и импорт данных</p>
+            <button class="btn-outline" id="export-btn">📤 Экспортировать (JSON)</button>
+            <button class="btn-outline" id="import-btn">📥 Импортировать (JSON)</button>
+            <input type="file" id="import-file" accept=".json" style="display:none" />
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 12px 0;" />
+            <button class="btn-danger" id="clear-data-btn">🗑️ Очистить все данные</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Quick-add modal -->
+  <div class="modal-overlay" id="quick-modal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Добавить операцию</h2>
+        <button class="modal-close" id="modal-close">✕</button>
+      </div>
+      <div class="modal-tabs" id="modal-tabs">
+        <button class="tab-btn active" data-type="expense" id="tab-expense">📉 Расход</button>
+        <button class="tab-btn" data-type="income" id="tab-income">📈 Доход</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Сумма (₽)</label>
+          <input type="number" id="modal-amount" class="input-field" placeholder="0.00" />
+        </div>
+        <div class="form-group">
+          <label>Категория</label>
+          <select id="modal-category" class="input-field"></select>
+        </div>
+        <div class="form-group">
+          <label>Описание (необязательно)</label>
+          <input type="text" id="modal-desc" class="input-field" placeholder="Краткое описание" />
+        </div>
+        <div class="form-group">
+          <label>Дата и время</label>
+          <input type="datetime-local" id="modal-date" class="input-field" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" id="modal-cancel">Отмена</button>
+        <button class="btn-primary" id="modal-save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mandatory payment modal -->
+  <div class="modal-overlay" id="mandatory-modal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="mandatory-modal-title">Обязательный платёж</h2>
+        <button class="modal-close" id="mandatory-modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Название</label>
+          <input type="text" id="m-name" class="input-field" placeholder="Аренда, интернет..." />
+        </div>
+        <div class="form-group">
+          <label>Сумма (₽)</label>
+          <input type="number" id="m-amount" class="input-field" placeholder="0.00" />
+        </div>
+        <div class="form-group">
+          <label>Категория</label>
+          <select id="m-category" class="input-field"></select>
+        </div>
+        <div class="form-group">
+          <label>День списания (1–31)</label>
+          <input type="number" id="m-day" class="input-field" placeholder="1" min="1" max="31" />
+        </div>
+        <div class="form-group">
+          <label>Тип</label>
+          <select id="m-type" class="input-field">
+            <option value="monthly">Ежемесячно</option>
+            <option value="once">Разово</option>
+            <option value="yearly">Ежегодно</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Статус</label>
+          <select id="m-status" class="input-field">
+            <option value="pending">Ожидает</option>
+            <option value="paid">Оплачен</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" id="mandatory-modal-cancel">Отмена</button>
+        <button class="btn-primary" id="mandatory-modal-save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div class="modal-overlay" id="confirm-modal" style="display:none">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2>Подтверждение</h2>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-text">Вы уверены?</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" id="confirm-no">Отмена</button>
+        <button class="btn-danger" id="confirm-yes">Удалить</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
