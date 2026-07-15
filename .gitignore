@@ -4,3 +4,5 @@ deploy/
 ssh_askpass.bat
 ssh_err.txt
 ssh_out.txt
+server_out.log
+iOS/
