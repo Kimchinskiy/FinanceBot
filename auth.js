@@ -146,15 +146,24 @@ router.get('/me', authRequired, async (req, res) => {
   }
 });
 
-// Создать дефолтный счёт «Наличные», если у пользователя ещё нет счетов
+// Создать дефолтные счета «Наличные» и «Карта», если их ещё нет
 async function ensureDefaultAccount(pool, userId) {
-  const r = await pool.query('SELECT COUNT(*) AS c FROM accounts WHERE user_id = $1', [userId]);
-  if (Number(r.rows[0].c) === 0) {
-    await pool.query(
-      `INSERT INTO accounts (id, user_id, name, type, currency, balance)
-       VALUES ($1, $2, 'Наличные', 'cash', 'RUB', 0)`,
-      [uid(), userId]
+  const defaults = [
+    { name: 'Наличные', type: 'cash' },
+    { name: 'Карта',    type: 'card' },
+  ];
+  for (const acc of defaults) {
+    const r = await pool.query(
+      'SELECT 1 FROM accounts WHERE user_id = $1 AND name = $2',
+      [userId, acc.name]
     );
+    if (!r.rows.length) {
+      await pool.query(
+        `INSERT INTO accounts (id, user_id, name, type, currency, balance)
+         VALUES ($1, $2, $3, $4, 'RUB', 0)`,
+        [uid(), userId, acc.name, acc.type]
+      );
+    }
   }
 }
 

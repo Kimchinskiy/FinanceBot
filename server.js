@@ -8,6 +8,7 @@ const { router: authRouter, authRequired } = require('./auth');
 const accountsRouter = require('./accounts');
 const goalsRouter = require('./goals');
 const aiRouter = require('./ai');
+const { router: quotesRouter } = require('./quotes');
 const { runMigration } = require('./migrate');
 
 const app = express();
@@ -91,15 +92,20 @@ app.get('/api/incomes', authRequired, async (req, res) => {
 
 app.post('/api/incomes', authRequired, async (req, res) => {
   try {
-    const { amount, category, description, datetime } = req.body;
+    const { amount, category, description, datetime, source } = req.body;
+    const src = source || 'Наличные';
     const id = uid();
     await pool.query(
-      'INSERT INTO incomes (id, user_id, amount, category, description, datetime) VALUES ($1, $2, $3, $4, $5, $6)',
-      [id, req.userId, amount, category, description || '', datetime || new Date().toISOString()]
+      'INSERT INTO incomes (id, user_id, amount, category, description, datetime, source) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [id, req.userId, amount, category, description || '', datetime || new Date().toISOString(), src]
     );
+    // Пополняем счёт, соответствующий источнику (по имени), иначе — первый счёт пользователя
     await pool.query(
-      "UPDATE accounts SET balance = balance + $1 WHERE id = (SELECT id FROM accounts WHERE user_id=$2 ORDER BY created_at ASC LIMIT 1)",
-      [amount, req.userId]
+      `UPDATE accounts SET balance = balance + $1 WHERE id = (
+         SELECT id FROM accounts WHERE user_id = $2
+         ORDER BY (name = $3) DESC, created_at ASC LIMIT 1
+       )`,
+      [amount, req.userId, src]
     );
     res.json({ id });
   } catch (err) {
@@ -109,11 +115,15 @@ app.post('/api/incomes', authRequired, async (req, res) => {
 
 app.delete('/api/incomes/:id', authRequired, async (req, res) => {
   try {
-    const r = await pool.query('SELECT amount FROM incomes WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
+    const r = await pool.query('SELECT amount, source FROM incomes WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
     if (r.rows[0]) {
+      const src = r.rows[0].source || 'Наличные';
       await pool.query(
-        "UPDATE accounts SET balance = balance - $1 WHERE id = (SELECT id FROM accounts WHERE user_id=$2 ORDER BY created_at ASC LIMIT 1)",
-        [r.rows[0].amount, req.userId]
+        `UPDATE accounts SET balance = balance - $1 WHERE id = (
+           SELECT id FROM accounts WHERE user_id = $2
+           ORDER BY (name = $3) DESC, created_at ASC LIMIT 1
+         )`,
+        [r.rows[0].amount, req.userId, src]
       );
     }
     await pool.query('DELETE FROM incomes WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
@@ -143,15 +153,20 @@ app.get('/api/expenses', authRequired, async (req, res) => {
 
 app.post('/api/expenses', authRequired, async (req, res) => {
   try {
-    const { amount, category, description, datetime } = req.body;
+    const { amount, category, description, datetime, source } = req.body;
+    const src = source || 'Наличные';
     const id = uid();
     await pool.query(
-      'INSERT INTO expenses (id, user_id, amount, category, description, datetime) VALUES ($1, $2, $3, $4, $5, $6)',
-      [id, req.userId, amount, category, description || '', datetime || new Date().toISOString()]
+      'INSERT INTO expenses (id, user_id, amount, category, description, datetime, source) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [id, req.userId, amount, category, description || '', datetime || new Date().toISOString(), src]
     );
+    // Списываем со счёта, соответствующего источнику (по имени), иначе — с первого счёта
     await pool.query(
-      "UPDATE accounts SET balance = balance - $1 WHERE id = (SELECT id FROM accounts WHERE user_id=$2 ORDER BY created_at ASC LIMIT 1)",
-      [amount, req.userId]
+      `UPDATE accounts SET balance = balance - $1 WHERE id = (
+         SELECT id FROM accounts WHERE user_id = $2
+         ORDER BY (name = $3) DESC, created_at ASC LIMIT 1
+       )`,
+      [amount, req.userId, src]
     );
     res.json({ id });
   } catch (err) {
@@ -161,11 +176,15 @@ app.post('/api/expenses', authRequired, async (req, res) => {
 
 app.delete('/api/expenses/:id', authRequired, async (req, res) => {
   try {
-    const r = await pool.query('SELECT amount FROM expenses WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
+    const r = await pool.query('SELECT amount, source FROM expenses WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
     if (r.rows[0]) {
+      const src = r.rows[0].source || 'Наличные';
       await pool.query(
-        "UPDATE accounts SET balance = balance + $1 WHERE id = (SELECT id FROM accounts WHERE user_id=$2 ORDER BY created_at ASC LIMIT 1)",
-        [r.rows[0].amount, req.userId]
+        `UPDATE accounts SET balance = balance + $1 WHERE id = (
+           SELECT id FROM accounts WHERE user_id = $2
+           ORDER BY (name = $3) DESC, created_at ASC LIMIT 1
+         )`,
+        [r.rows[0].amount, req.userId, src]
       );
     }
     await pool.query('DELETE FROM expenses WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
@@ -239,6 +258,7 @@ app.patch('/api/mandatory/:id/toggle', authRequired, async (req, res) => {
 app.use('/api/accounts', authRequired, accountsRouter);
 app.use('/api/goals', authRequired, goalsRouter);
 app.use('/api/ai', authRequired, aiRouter);
+app.use('/api/quotes', authRequired, quotesRouter);
 
 /* ──────────────────── TELEGRAM LOGIN CALLBACK ──────────────────── */
 // Telegram Login Widget редиректит сюда, мы перенаправляем в приложение (URL scheme).
@@ -248,7 +268,7 @@ app.get('/telegram_callback', (req, res) => {
     .join('&');
   res.type('html').send(
     `<!doctype html><html><head><meta charset="utf-8"><title>FinanceBot</title></head>` +
-    `<body style="font-family:sans-serif;text-align:center;padding-top:40px;background:#0d0f14;color:#f0f2ff">` +
+    `<body style="font-family:-apple-system,sans-serif;text-align:center;padding-top:40px;background:#f5f5f7;color:#1d1d1f">` +
     `Перенаправление в приложение…<script>location.href='finabot://auth?${q}';</script>` +
     `</body></html>`
   );

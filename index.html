@@ -2,14 +2,14 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="robots" content="noindex" />
   <title>FinanceBot — Личный финансовый помощник</title>
   <meta name="description" content="Умный помощник для учёта доходов, расходов и финансовой аналитики" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=2" />
+  <link rel="stylesheet" href="style.css?v=7" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="tg.js?v=2"></script>
@@ -49,12 +49,13 @@
       <span class="logo-text">FinanceBot</span>
     </div>
     <div class="navbar-nav" id="navbar-nav">
-      <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">📊 Дашборд</a>
-      <a href="#" class="nav-item" data-page="income" id="nav-income">📈 Доходы</a>
-      <a href="#" class="nav-item" data-page="expenses" id="nav-expenses">📉 Расходы</a>
-      <a href="#" class="nav-item" data-page="mandatory" id="nav-mandatory">🔒 Платежи</a>
-      <a href="#" class="nav-item" data-page="analytics" id="nav-analytics">📋 Аналитика</a>
-      <a href="#" class="nav-item" data-page="settings" id="nav-settings">⚙️ Настройки</a>
+      <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard"><span class="nav-ico">🏠</span><span class="nav-txt">Обзор</span></a>
+      <a href="#" class="nav-item" data-page="income" id="nav-income"><span class="nav-ico">📈</span><span class="nav-txt">Доходы</span></a>
+      <a href="#" class="nav-item" data-page="expenses" id="nav-expenses"><span class="nav-ico">📉</span><span class="nav-txt">Расходы</span></a>
+      <a href="#" class="nav-item" data-page="mandatory" id="nav-mandatory"><span class="nav-ico">📅</span><span class="nav-txt">Платежи</span></a>
+      <a href="#" class="nav-item" data-page="assets" id="nav-assets"><span class="nav-ico">💎</span><span class="nav-txt">Активы</span></a>
+      <a href="#" class="nav-item" data-page="analytics" id="nav-analytics"><span class="nav-ico">📊</span><span class="nav-txt">Аналитика</span></a>
+      <a href="#" class="nav-item" data-page="settings" id="nav-settings"><span class="nav-ico">⚙️</span><span class="nav-txt">Настройки</span></a>
     </div>
     <div class="navbar-actions">
       <button class="btn-primary" id="quick-add-btn">+ Добавить</button>
@@ -62,10 +63,13 @@
     </div>
   </nav>
 
+  <!-- Floating Add button (mobile) -->
+  <button class="fab" id="fab-add" aria-label="Добавить операцию">+</button>
+
   <!-- Main Content -->
   <main class="main-content">
     <header class="topbar">
-      <div class="topbar-title" id="page-title">Дашборд</div>
+      <div class="topbar-title" id="page-title">Обзор</div>
       <div class="topbar-actions">
         <button class="btn-close-tg" id="close-tg-btn" title="Закрыть" style="display:none">✕</button>
       </div>
@@ -78,12 +82,28 @@
         <div class="card card-balance card-green">
           <div class="card-icon">💵</div>
           <div class="card-body">
-            <div class="card-label">Общий баланс</div>
-            <div class="card-value" id="total-balance">0 ₽</div>
-            <div class="card-sub" id="balance-change">+0 за этот месяц</div>
+            <div class="card-label">Доступно (нал + безнал)</div>
+            <div class="card-value" id="available-total">0 ₽</div>
+            <div class="card-sub" id="available-breakdown">Наличные 0 ₽ · Карта 0 ₽</div>
           </div>
         </div>
-        <div class="card card-income card-blue">
+        <div class="card card-purple">
+          <div class="card-icon">📦</div>
+          <div class="card-body">
+            <div class="card-label">Активы / Инвестиции</div>
+            <div class="card-value" id="assets-total">0 ₽</div>
+            <div class="card-sub" id="assets-breakdown">Вклады · Крипта · Акции</div>
+          </div>
+        </div>
+        <div class="card card-blue">
+          <div class="card-icon">🏦</div>
+          <div class="card-body">
+            <div class="card-label">Чистый капитал</div>
+            <div class="card-value" id="networth-total">0 ₽</div>
+            <div class="card-sub" id="networth-sub">Всего по всем счетам</div>
+          </div>
+        </div>
+        <div class="card card-green">
           <div class="card-icon">📈</div>
           <div class="card-body">
             <div class="card-label">Доходы (месяц)</div>
@@ -91,7 +111,7 @@
             <div class="card-sub" id="income-count">0 операций</div>
           </div>
         </div>
-        <div class="card card-expense card-red">
+        <div class="card card-red">
           <div class="card-icon">📉</div>
           <div class="card-body">
             <div class="card-label">Расходы (месяц)</div>
@@ -99,14 +119,11 @@
             <div class="card-sub" id="expense-count">0 операций</div>
           </div>
         </div>
-        <div class="card card-cash card-purple">
-          <div class="card-icon">💳</div>
-          <div class="card-body">
-            <div class="card-label">Наличные</div>
-            <div class="card-value" id="cash-amount">0 ₽</div>
-            <div class="card-sub">Обновите в настройках</div>
-          </div>
-        </div>
+      </div>
+
+      <!-- hidden legacy fields kept for compatibility -->
+      <div style="display:none">
+        <span id="total-balance"></span><span id="balance-change"></span><span id="cash-amount"></span>
       </div>
 
       <!-- Salary countdown -->
@@ -170,13 +187,14 @@
               <tr>
                 <th>Дата</th>
                 <th>Категория</th>
+                <th>Счёт</th>
                 <th>Описание</th>
                 <th>Сумма</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="income-tbody">
-              <tr><td colspan="5" class="empty-cell">Нет доходов</td></tr>
+              <tr><td colspan="6" class="empty-cell">Нет доходов</td></tr>
             </tbody>
           </table>
         </div>
@@ -205,13 +223,14 @@
               <tr>
                 <th>Дата</th>
                 <th>Категория</th>
+                <th>Счёт</th>
                 <th>Описание</th>
                 <th>Сумма</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="expense-tbody">
-              <tr><td colspan="5" class="empty-cell">Нет расходов</td></tr>
+              <tr><td colspan="6" class="empty-cell">Нет расходов</td></tr>
             </tbody>
           </table>
         </div>
@@ -225,6 +244,65 @@
       </div>
       <div class="mandatory-cards" id="mandatory-cards">
         <div class="empty-state">Нет обязательных платежей. Добавьте первый!</div>
+      </div>
+    </div>
+
+    <!-- ASSETS PAGE -->
+    <div class="page" id="page-assets">
+      <div class="page-actions">
+        <button class="btn-primary" id="add-asset-btn">+ Добавить актив</button>
+        <button class="btn-outline" id="refresh-prices-btn">🔄 Обновить котировки</button>
+        <span class="assets-updated" id="assets-updated"></span>
+      </div>
+
+      <!-- Summary -->
+      <div class="assets-summary" id="assets-summary">
+        <div class="asum">
+          <div class="asum-label">Всего активов</div>
+          <div class="asum-val" id="assets-page-total">0 ₽</div>
+        </div>
+        <div class="asum">
+          <div class="asum-label">Вклады</div>
+          <div class="asum-val" id="assets-deposits">0 ₽</div>
+        </div>
+        <div class="asum">
+          <div class="asum-label">Криптовалюта</div>
+          <div class="asum-val" id="assets-crypto">0 ₽</div>
+        </div>
+        <div class="asum">
+          <div class="asum-label">Акции</div>
+          <div class="asum-val" id="assets-stocks">0 ₽</div>
+        </div>
+      </div>
+
+      <!-- Deposits module -->
+      <div class="panel asset-module">
+        <div class="panel-header"><span>🏦 Вклады и счета</span>
+          <button class="link-btn" data-add-asset="deposit">+ Вклад</button>
+        </div>
+        <div class="asset-list" id="asset-list-deposit">
+          <div class="empty-state">Нет вкладов</div>
+        </div>
+      </div>
+
+      <!-- Crypto module -->
+      <div class="panel asset-module">
+        <div class="panel-header"><span>₿ Криптовалюта</span>
+          <button class="link-btn" data-add-asset="crypto">+ Монета</button>
+        </div>
+        <div class="asset-list" id="asset-list-crypto">
+          <div class="empty-state">Нет криптовалюты</div>
+        </div>
+      </div>
+
+      <!-- Stocks module -->
+      <div class="panel asset-module">
+        <div class="panel-header"><span>📊 Акции / Брокер</span>
+          <button class="link-btn" data-add-asset="broker">+ Акция</button>
+        </div>
+        <div class="asset-list" id="asset-list-broker">
+          <div class="empty-state">Нет акций</div>
+        </div>
       </div>
     </div>
 
@@ -282,10 +360,13 @@
     <div class="page" id="page-settings">
       <div class="settings-grid">
         <div class="panel">
-          <div class="panel-header"><span>💵 Наличные</span></div>
+          <div class="panel-header"><span>💵 Балансы счетов</span></div>
           <div class="settings-form">
-            <label>Сумма наличных (₽)</label>
+            <p class="text-muted">Стартовые балансы денег на каждый день. Доходы и расходы меняют их автоматически.</p>
+            <label>Наличные (₽)</label>
             <input type="number" id="cash-input" class="input-field" placeholder="0" />
+            <label>Карта / безнал (₽)</label>
+            <input type="number" id="card-input" class="input-field" placeholder="0" />
             <button class="btn-primary" id="save-cash">Сохранить</button>
           </div>
         </div>
@@ -329,11 +410,12 @@
         <div class="panel panel-danger">
           <div class="panel-header"><span>⚠️ Данные</span></div>
           <div class="settings-form">
-            <p class="text-muted">Экспорт и импорт данных</p>
-            <button class="btn-outline" id="export-btn">📤 Экспортировать (JSON)</button>
-            <button class="btn-outline" id="import-btn">📥 Импортировать (JSON)</button>
-            <input type="file" id="import-file" accept=".json" style="display:none" />
-            <hr style="border-color: rgba(255,255,255,0.1); margin: 12px 0;" />
+            <div class="excel-note">
+              <div class="excel-note-title">📊 Экспорт в Excel</div>
+              <p class="text-muted">Скоро здесь появится выгрузка операций в формате Excel (.xlsx). Фундамент заложен — функция в разработке.</p>
+              <button class="btn-outline" id="export-excel-btn" disabled>📥 Скачать Excel (скоро)</button>
+            </div>
+            <hr style="border-color: var(--border); margin: 12px 0;" />
             <button class="btn-danger" id="clear-data-btn">🗑️ Очистить все данные</button>
           </div>
         </div>
@@ -360,6 +442,15 @@
         <div class="form-group">
           <label>Категория</label>
           <select id="modal-category" class="input-field"></select>
+        </div>
+        <div class="form-group">
+          <label>Счёт (откуда/куда)</label>
+          <div class="source-toggle" id="modal-source-toggle" role="tablist">
+            <button type="button" class="source-opt active" data-source="Наличные">💵 Наличные</button>
+            <button type="button" class="source-opt" data-source="Карта">💳 Безнал</button>
+            <span class="source-thumb" aria-hidden="true"></span>
+          </div>
+          <input type="hidden" id="modal-source" value="Наличные" />
         </div>
         <div class="form-group">
           <label>Описание (необязательно)</label>
@@ -420,6 +511,82 @@
       <div class="modal-footer">
         <button class="btn-outline" id="mandatory-modal-cancel">Отмена</button>
         <button class="btn-primary" id="mandatory-modal-save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Asset modal -->
+  <div class="modal-overlay" id="asset-modal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="asset-modal-title">Добавить актив</h2>
+        <button class="modal-close" id="asset-modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Тип актива</label>
+          <select id="asset-type" class="input-field">
+            <option value="deposit">🏦 Вклад / счёт</option>
+            <option value="crypto">₿ Криптовалюта</option>
+            <option value="broker">📊 Акция / брокер</option>
+          </select>
+        </div>
+
+        <!-- DEPOSIT -->
+        <div data-asset-fields="deposit">
+          <div class="form-group">
+            <label>Название</label>
+            <input type="text" id="asset-name" class="input-field" placeholder="Вклад в Сбере" />
+          </div>
+          <div class="form-group">
+            <label>Сумма (₽)</label>
+            <input type="number" id="asset-balance" class="input-field" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label>Ставка, % годовых (необязательно)</label>
+            <input type="number" id="asset-rate" class="input-field" placeholder="0" step="0.01" />
+          </div>
+        </div>
+
+        <!-- CRYPTO -->
+        <div data-asset-fields="crypto" style="display:none">
+          <div class="form-group">
+            <label>Монета</label>
+            <input type="text" id="asset-crypto-search" class="input-field" placeholder="Например: bitcoin, eth, solana" autocomplete="off" />
+            <div class="crypto-results" id="crypto-results"></div>
+            <div class="asset-selected" id="crypto-selected"></div>
+          </div>
+          <div class="form-group">
+            <label>Количество</label>
+            <input type="number" id="asset-qty-crypto" class="input-field" placeholder="0.00" step="any" />
+          </div>
+          <div class="asset-preview" id="crypto-preview"></div>
+        </div>
+
+        <!-- BROKER -->
+        <div data-asset-fields="broker" style="display:none">
+          <div class="form-group">
+            <label>Тикер</label>
+            <input type="text" id="asset-symbol-broker" class="input-field" placeholder="AAPL, SBER, TSLA" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label>Количество</label>
+            <input type="number" id="asset-qty-broker" class="input-field" placeholder="0" step="any" />
+          </div>
+          <div class="form-group">
+            <label>Цена за шт, ₽</label>
+            <div class="price-row">
+              <input type="number" id="asset-price-broker" class="input-field" placeholder="0" step="any" />
+              <button type="button" class="btn-outline" id="fetch-stock-btn">Котировка</button>
+            </div>
+            <span class="text-muted" id="broker-hint"></span>
+          </div>
+          <div class="asset-preview" id="broker-preview"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" id="asset-modal-cancel">Отмена</button>
+        <button class="btn-primary" id="asset-modal-save">Сохранить</button>
       </div>
     </div>
   </div>

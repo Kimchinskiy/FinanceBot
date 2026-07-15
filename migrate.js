@@ -34,6 +34,19 @@ const statements = [
     END IF;
   END $$`,
 
+  // Источник средств (счёт) для доходов/расходов: Наличные | Карта | ...
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='incomes' AND column_name='source') THEN
+      ALTER TABLE incomes ADD COLUMN source VARCHAR(50) NOT NULL DEFAULT 'Наличные';
+    END IF;
+  END $$`,
+
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='expenses' AND column_name='source') THEN
+      ALTER TABLE expenses ADD COLUMN source VARCHAR(50) NOT NULL DEFAULT 'Наличные';
+    END IF;
+  END $$`,
+
   `DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='settings' AND column_name='value')
        AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='settings' AND column_name='user_id') THEN
@@ -77,6 +90,25 @@ const statements = [
   )`,
 
   `CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts (user_id)`,
+
+  // Расширяем accounts под инвестиционные активы (крипта/акции/вклады)
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='accounts' AND column_name='symbol') THEN
+      ALTER TABLE accounts ADD COLUMN symbol VARCHAR(50);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='accounts' AND column_name='quantity') THEN
+      ALTER TABLE accounts ADD COLUMN quantity DECIMAL(28,10);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='accounts' AND column_name='unit_price') THEN
+      ALTER TABLE accounts ADD COLUMN unit_price DECIMAL(20,6);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='accounts' AND column_name='meta') THEN
+      ALTER TABLE accounts ADD COLUMN meta JSONB DEFAULT '{}'::jsonb;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='accounts' AND column_name='price_updated_at') THEN
+      ALTER TABLE accounts ADD COLUMN price_updated_at TIMESTAMP;
+    END IF;
+  END $$`,
 
   `INSERT INTO accounts (id, user_id, name, type, currency, balance)
    SELECT 'system-cash','system','Наличные','cash','RUB',0
