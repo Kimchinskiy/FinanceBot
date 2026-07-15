@@ -4,11 +4,30 @@
 =================================================================== */
 
 const API = '/api';
+const AUTH_KEY = 'fb_token';
+const USER_KEY = 'fb_user';
+
+function getToken() { return localStorage.getItem(AUTH_KEY); }
+function setSession(token, user) {
+  localStorage.setItem(AUTH_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+function clearSession() {
+  localStorage.removeItem(AUTH_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+function logout() {
+  clearSession();
+  location.reload();
+}
 
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  const token = getToken();
+  if (token) opts.headers['Authorization'] = 'Bearer ' + token;
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
+  if (res.status === 401) { logout(); throw new Error('auth'); }
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -178,22 +197,17 @@ function renderDashboard() {
   renderSalaryBar();
   renderRecentTransactions();
   renderDashboardMandatory();
-  renderDashChart();
 }
 
 function renderSalaryBar() {
   const bar = document.getElementById('salary-bar');
-  const sideDate = document.getElementById('salary-sidebar-date');
-  const sideAmt  = document.getElementById('salary-sidebar-amount');
-  if (!state.salary.day) { bar.style.display = 'none'; sideDate.textContent = '—'; sideAmt.textContent = '—'; return; }
+  if (!state.salary.day) { bar.style.display = 'none'; return; }
   const next = getNextSalaryDate();
   const days = daysUntilSalary();
   bar.style.display = 'flex';
   document.getElementById('salary-bar-sub').textContent = fmtDate(next);
   document.getElementById('salary-days-chip').textContent = days === 0 ? '🎉 Сегодня!' : `${days} дн.`;
   document.getElementById('salary-expected').textContent = state.salary.amount ? fmt(state.salary.amount) : '';
-  sideDate.textContent = fmtDate(next);
-  sideAmt.textContent = state.salary.amount ? fmt(state.salary.amount) : '—';
 }
 
 function renderRecentTransactions() {
@@ -234,31 +248,6 @@ function renderDashboardMandatory() {
       </div>
     </div>
   `).join('');
-}
-
-function renderDashChart() {
-  const ctx = document.getElementById('dashChart');
-  if (!ctx) return;
-  if (chartInstances['dashChart']) chartInstances['dashChart'].destroy();
-  const labels = []; const inc = []; const exp = [];
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0,10);
-    labels.push(d.toLocaleDateString('ru-RU', {day:'numeric', month:'short'}));
-    inc.push(state.incomes.filter(t => t.datetime.startsWith(key)).reduce((s,t) => s + Number(t.amount), 0));
-    exp.push(state.expenses.filter(t => t.datetime.startsWith(key)).reduce((s,t) => s + Number(t.amount), 0));
-  }
-  chartInstances['dashChart'] = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Доходы', data: inc, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.08)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
-        { label: 'Расходы', data: exp, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }
-      ]
-    },
-    options: chartDefaults()
-  });
 }
 
 function chartDefaults() {
@@ -730,23 +719,85 @@ async function importData(file) {
   reader.readAsText(file);
 }
 
-/* ──────────────────── INIT ──────────────────── */
-async function init() {
+/* ──────────────────── AUTH (frontend) ──────────────────── */
+let appStarted = false;
+let authMode = 'login';
+
+function showAuth() { const s = document.getElementById('auth-screen'); if (s) s.style.display = 'flex'; }
+function hideAuth() { const s = document.getElementById('auth-screen'); if (s) s.style.display = 'none'; }
+
+function updateAuthModeUI() {
+  const isLogin = authMode === 'login';
+  document.getElementById('auth-submit').textContent = isLogin ? 'Войти' : 'Зарегистрироваться';
+  document.getElementById('auth-switch-text').textContent = isLogin ? 'Нет аккаунта?' : 'Уже есть аккаунт?';
+  document.getElementById('auth-switch-btn').textContent = isLogin ? 'Зарегистрироваться' : 'Войти';
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  try {
+    const res = await fetch('/api/auth/' + authMode, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || 'Ошибка входа'; return; }
+    setSession(data.token, data.user);
+    hideAuth();
+    startApp();
+  } catch (err) {
+    errEl.textContent = 'Сетевая ошибка';
+  }
+}
+
+function setupAuthUI() {
+  const form = document.getElementById('auth-form');
+  if (form) form.addEventListener('submit', handleAuth);
+  const sw = document.getElementById('auth-switch-btn');
+  const swText = document.getElementById('auth-switch-text');
+  if (sw) sw.addEventListener('click', e => {
+    e.preventDefault();
+    authMode = authMode === 'login' ? 'register' : 'login';
+    updateAuthModeUI();
+  });
+  updateAuthModeUI();
+  // Узнаём, открыта ли регистрация; если закрыта — прячем переключатель
+  fetch('/api/auth/config').then(r => r.json()).then(cfg => {
+    if (!cfg.allowRegister) {
+      authMode = 'login';
+      if (sw) sw.style.display = 'none';
+      if (swText) swText.style.display = 'none';
+      updateAuthModeUI();
+    }
+  }).catch(() => {});
+}
+
+/* ──────────────────── APP START ──────────────────── */
+async function startApp() {
+  if (appStarted) {
+    await loadAll();
+    renderPage(activePage);
+    return;
+  }
+  appStarted = true;
   await loadAll();
 
-  document.querySelectorAll('.nav-item').forEach(item => {
+  document.querySelectorAll('.navbar-nav .nav-item').forEach(item => {
     item.addEventListener('click', e => {
       e.preventDefault();
       navigate(item.dataset.page);
-      if (window.innerWidth < 700) document.getElementById('sidebar').classList.remove('open');
     });
   });
   document.querySelectorAll('[data-page]').forEach(btn => {
     if (!btn.classList.contains('nav-item')) btn.addEventListener('click', () => navigate(btn.dataset.page));
   });
-  document.getElementById('menu-toggle').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.toggle('open');
-  });
+  document.getElementById('logout-btn').addEventListener('click', logout);
   document.getElementById('quick-add-btn').addEventListener('click',   () => openQuickAdd('expense'));
   document.getElementById('add-income-btn')?.addEventListener('click', () => openQuickAdd('income'));
   document.getElementById('add-expense-btn')?.addEventListener('click',() => openQuickAdd('expense'));
@@ -839,6 +890,13 @@ async function init() {
   document.getElementById('analytics-period').addEventListener('change', renderAnalytics);
 
   navigate('dashboard');
+}
+
+/* ──────────────────── INIT ──────────────────── */
+function init() {
+  setupAuthUI();
+  if (getToken()) startApp();
+  else showAuth();
 }
 
 document.addEventListener('DOMContentLoaded', init);

@@ -9,54 +9,64 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="tg.js"></script>
+  <script src="tg.js?v=2"></script>
 </head>
 <body>
-  <!-- Sidebar -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-logo">
+  <!-- Auth screen -->
+  <div class="auth-screen" id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="logo-icon">💰</div>
+        <span class="logo-text">FinanceBot</span>
+      </div>
+      <p class="auth-sub">Войдите, чтобы продолжить</p>
+      <form id="auth-form" class="auth-form" autocomplete="off">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="auth-email" class="input-field" placeholder="you@example.com" required />
+        </div>
+        <div class="form-group">
+          <label>Пароль</label>
+          <input type="password" id="auth-password" class="input-field" placeholder="••••••" required />
+        </div>
+        <button type="submit" class="btn-primary auth-submit" id="auth-submit">Войти</button>
+      </form>
+      <p class="auth-error" id="auth-error"></p>
+      <p class="auth-switch">
+        <span id="auth-switch-text">Нет аккаунта?</span>
+        <a href="#" id="auth-switch-btn">Зарегистрироваться</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- Navbar -->
+  <nav class="navbar" id="navbar">
+    <div class="navbar-logo">
       <div class="logo-icon">💰</div>
       <span class="logo-text">FinanceBot</span>
     </div>
-    <nav class="sidebar-nav">
-      <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
-        <span class="nav-icon">📊</span><span class="nav-label">Дашборд</span>
-      </a>
-      <a href="#" class="nav-item" data-page="income" id="nav-income">
-        <span class="nav-icon">📈</span><span class="nav-label">Доходы</span>
-      </a>
-      <a href="#" class="nav-item" data-page="expenses" id="nav-expenses">
-        <span class="nav-icon">📉</span><span class="nav-label">Расходы</span>
-      </a>
-      <a href="#" class="nav-item" data-page="mandatory" id="nav-mandatory">
-        <span class="nav-icon">🔒</span><span class="nav-label">Обязат. платежи</span>
-      </a>
-      <a href="#" class="nav-item" data-page="analytics" id="nav-analytics">
-        <span class="nav-icon">📋</span><span class="nav-label">Аналитика</span>
-      </a>
-      <a href="#" class="nav-item" data-page="settings" id="nav-settings">
-        <span class="nav-icon">⚙️</span><span class="nav-label">Настройки</span>
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="salary-info" id="salary-sidebar">
-        <div class="salary-label">Следующая ЗП</div>
-        <div class="salary-date" id="salary-sidebar-date">—</div>
-        <div class="salary-amount" id="salary-sidebar-amount">—</div>
-      </div>
+    <div class="navbar-nav" id="navbar-nav">
+      <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">📊 Дашборд</a>
+      <a href="#" class="nav-item" data-page="income" id="nav-income">📈 Доходы</a>
+      <a href="#" class="nav-item" data-page="expenses" id="nav-expenses">📉 Расходы</a>
+      <a href="#" class="nav-item" data-page="mandatory" id="nav-mandatory">🔒 Платежи</a>
+      <a href="#" class="nav-item" data-page="analytics" id="nav-analytics">📋 Аналитика</a>
+      <a href="#" class="nav-item" data-page="settings" id="nav-settings">⚙️ Настройки</a>
     </div>
-  </aside>
+    <div class="navbar-actions">
+      <button class="btn-primary" id="quick-add-btn">+ Добавить</button>
+      <button class="btn-outline" id="logout-btn">Выйти</button>
+    </div>
+  </nav>
 
   <!-- Main Content -->
   <main class="main-content">
     <header class="topbar">
-      <button class="menu-toggle" id="menu-toggle">☰</button>
       <div class="topbar-title" id="page-title">Дашборд</div>
       <div class="topbar-actions">
-        <button class="btn-primary" id="quick-add-btn">+ Добавить</button>
         <button class="btn-close-tg" id="close-tg-btn" title="Закрыть" style="display:none">✕</button>
       </div>
     </header>
@@ -136,11 +146,6 @@
         </div>
       </div>
 
-      <!-- Mini chart -->
-      <div class="panel chart-panel">
-        <div class="panel-header"><span>Доходы vs Расходы (30 дней)</span></div>
-        <canvas id="dashChart" height="80"></canvas>
-      </div>
     </div>
 
     <!-- INCOME PAGE -->

@@ -58,8 +58,16 @@ function verifyTelegramHash(data) {
 
 const router = express.Router();
 
+// GET /api/auth/config — публично: открыта ли регистрация
+router.get('/config', (req, res) => {
+  res.json({ allowRegister: process.env.OPEN_REGISTER !== 'false' });
+});
+
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
+  if (process.env.OPEN_REGISTER === 'false') {
+    return res.status(403).json({ error: 'Регистрация закрыта' });
+  }
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email и пароль обязательны' });
   if (String(password).length < 6) return res.status(400).json({ error: 'Пароль минимум 6 символов' });

@@ -26,7 +26,16 @@ app.locals.pool = pool;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname), {
+  maxAge: 0,
+  setHeaders: (res, filePath) => {
+    if (/\.(html|css|js)$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
