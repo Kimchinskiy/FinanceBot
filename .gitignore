@@ -1,5 +1,8 @@
 node_modules
 .env
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 deploy/
 ssh_askpass.bat
 ssh_err.txt

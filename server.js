@@ -1,10 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
 const path = require('path');
+const { query } = require('./db');
 const { createBot, launchBot, stopBot } = require('./bot');
-const { router: authRouter, authRequired } = require('./auth');
+const { router: authRouter, authRequired, upsertUserByTg, signToken } = require('./auth');
 const accountsRouter = require('./accounts');
 const goalsRouter = require('./goals');
 const aiRouter = require('./ai');
@@ -15,15 +15,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
 
-const pool = new Pool({
-  user: process.env.DB_USER || 'noc',
-  password: process.env.DB_PASSWORD || 'noc',
-  host: process.env.DB_HOST || '127.0.0.1',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'financebot',
-});
-// Делаем пул доступным в роутах через req.app.locals
-app.locals.pool = pool;
+// Делаем db-обёртку доступной в роутах через req.app.locals
+app.locals.db = { query };
 
 app.use(cors());
 app.use(express.json());
@@ -48,7 +41,7 @@ app.use('/api/auth', authRouter);
 /* ──────────────────── SETTINGS (per-user) ──────────────────── */
 app.get('/api/settings', authRequired, async (req, res) => {
   try {
-    const result = await pool.query('SELECT key, value FROM settings WHERE user_id = $1', [req.userId]);
+    const result = await query('SELECT key, value FROM settings WHERE user_id = ?', [req.userId]);
     const settings = {};
     result.rows.forEach(r => settings[r.key] = r.value);
     res.json(settings);
@@ -61,9 +54,9 @@ app.put('/api/settings/:key', authRequired, async (req, res) => {
   try {
     const { key } = req.params;
     const { value } = req.body;
-    await pool.query(
-      `INSERT INTO settings (user_id, key, value, updated_at) VALUES ($1, $2, $3::jsonb, NOW())
-       ON CONFLICT (user_id, key) DO UPDATE SET value = $3::jsonb, updated_at = NOW()`,
+    await query(
+      `INSERT OR REPLACE INTO settings (user_id, key, value, updated_at)
+       VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
       [req.userId, key, JSON.stringify(value)]
     );
     res.json({ ok: true });
@@ -76,14 +69,14 @@ app.put('/api/settings/:key', authRequired, async (req, res) => {
 app.get('/api/incomes', authRequired, async (req, res) => {
   try {
     const { month, category } = req.query;
-    let sql = 'SELECT * FROM incomes WHERE user_id = $1';
+    let sql = 'SELECT * FROM incomes WHERE user_id = ?';
     const params = [req.userId];
     const conditions = [];
-    if (month) { conditions.push(`datetime::text LIKE $${params.length + 1} || '%'`); params.push(month); }
-    if (category) { conditions.push(`category = $${params.length + 1}`); params.push(category); }
+    if (month) { conditions.push(`datetime LIKE ? || '%'`); params.push(month); }
+    if (category) { conditions.push(`category = ?`); params.push(category); }
     if (conditions.length) sql += ' AND ' + conditions.join(' AND ');
     sql += ' ORDER BY datetime DESC';
-    const result = await pool.query(sql, params);
+    const result = await query(sql, params);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -95,15 +88,15 @@ app.post('/api/incomes', authRequired, async (req, res) => {
     const { amount, category, description, datetime, source } = req.body;
     const src = source || 'Наличные';
     const id = uid();
-    await pool.query(
-      'INSERT INTO incomes (id, user_id, amount, category, description, datetime, source) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    await query(
+      'INSERT INTO incomes (id, user_id, amount, category, description, datetime, source) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [id, req.userId, amount, category, description || '', datetime || new Date().toISOString(), src]
     );
     // Пополняем счёт, соответствующий источнику (по имени), иначе — первый счёт пользователя
-    await pool.query(
-      `UPDATE accounts SET balance = balance + $1 WHERE id = (
-         SELECT id FROM accounts WHERE user_id = $2
-         ORDER BY (name = $3) DESC, created_at ASC LIMIT 1
+    await query(
+      `UPDATE accounts SET balance = balance + ? WHERE id = (
+         SELECT id FROM accounts WHERE user_id = ?
+         ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
        )`,
       [amount, req.userId, src]
     );
@@ -115,18 +108,18 @@ app.post('/api/incomes', authRequired, async (req, res) => {
 
 app.delete('/api/incomes/:id', authRequired, async (req, res) => {
   try {
-    const r = await pool.query('SELECT amount, source FROM incomes WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
+    const r = await query('SELECT amount, source FROM incomes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
     if (r.rows[0]) {
       const src = r.rows[0].source || 'Наличные';
-      await pool.query(
-        `UPDATE accounts SET balance = balance - $1 WHERE id = (
-           SELECT id FROM accounts WHERE user_id = $2
-           ORDER BY (name = $3) DESC, created_at ASC LIMIT 1
+      await query(
+        `UPDATE accounts SET balance = balance - ? WHERE id = (
+           SELECT id FROM accounts WHERE user_id = ?
+           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
          )`,
         [r.rows[0].amount, req.userId, src]
       );
     }
-    await pool.query('DELETE FROM incomes WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
+    await query('DELETE FROM incomes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -137,14 +130,14 @@ app.delete('/api/incomes/:id', authRequired, async (req, res) => {
 app.get('/api/expenses', authRequired, async (req, res) => {
   try {
     const { month, category } = req.query;
-    let sql = 'SELECT * FROM expenses WHERE user_id = $1';
+    let sql = 'SELECT * FROM expenses WHERE user_id = ?';
     const params = [req.userId];
     const conditions = [];
-    if (month) { conditions.push(`datetime::text LIKE $${params.length + 1} || '%'`); params.push(month); }
-    if (category) { conditions.push(`category = $${params.length + 1}`); params.push(category); }
+    if (month) { conditions.push(`datetime LIKE ? || '%'`); params.push(month); }
+    if (category) { conditions.push(`category = ?`); params.push(category); }
     if (conditions.length) sql += ' AND ' + conditions.join(' AND ');
     sql += ' ORDER BY datetime DESC';
-    const result = await pool.query(sql, params);
+    const result = await query(sql, params);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -156,15 +149,15 @@ app.post('/api/expenses', authRequired, async (req, res) => {
     const { amount, category, description, datetime, source } = req.body;
     const src = source || 'Наличные';
     const id = uid();
-    await pool.query(
-      'INSERT INTO expenses (id, user_id, amount, category, description, datetime, source) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    await query(
+      'INSERT INTO expenses (id, user_id, amount, category, description, datetime, source) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [id, req.userId, amount, category, description || '', datetime || new Date().toISOString(), src]
     );
     // Списываем со счёта, соответствующего источнику (по имени), иначе — с первого счёта
-    await pool.query(
-      `UPDATE accounts SET balance = balance - $1 WHERE id = (
-         SELECT id FROM accounts WHERE user_id = $2
-         ORDER BY (name = $3) DESC, created_at ASC LIMIT 1
+    await query(
+      `UPDATE accounts SET balance = balance - ? WHERE id = (
+         SELECT id FROM accounts WHERE user_id = ?
+         ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
        )`,
       [amount, req.userId, src]
     );
@@ -176,18 +169,18 @@ app.post('/api/expenses', authRequired, async (req, res) => {
 
 app.delete('/api/expenses/:id', authRequired, async (req, res) => {
   try {
-    const r = await pool.query('SELECT amount, source FROM expenses WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
+    const r = await query('SELECT amount, source FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
     if (r.rows[0]) {
       const src = r.rows[0].source || 'Наличные';
-      await pool.query(
-        `UPDATE accounts SET balance = balance + $1 WHERE id = (
-           SELECT id FROM accounts WHERE user_id = $2
-           ORDER BY (name = $3) DESC, created_at ASC LIMIT 1
+      await query(
+        `UPDATE accounts SET balance = balance + ? WHERE id = (
+           SELECT id FROM accounts WHERE user_id = ?
+           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
          )`,
         [r.rows[0].amount, req.userId, src]
       );
     }
-    await pool.query('DELETE FROM expenses WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
+    await query('DELETE FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -197,7 +190,7 @@ app.delete('/api/expenses/:id', authRequired, async (req, res) => {
 /* ──────────────────── MANDATORY (per-user) ──────────────────── */
 app.get('/api/mandatory', authRequired, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM mandatory_payments WHERE user_id = $1 ORDER BY day ASC', [req.userId]);
+    const result = await query('SELECT * FROM mandatory_payments WHERE user_id = ? ORDER BY day ASC', [req.userId]);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -208,8 +201,8 @@ app.post('/api/mandatory', authRequired, async (req, res) => {
   try {
     const { name, amount, category, day, type, status } = req.body;
     const id = uid();
-    await pool.query(
-      'INSERT INTO mandatory_payments (id, user_id, name, amount, category, day, type, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+    await query(
+      'INSERT INTO mandatory_payments (id, user_id, name, amount, category, day, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       [id, req.userId, name, amount, category, day || null, type || 'monthly', status || 'pending']
     );
     res.json({ id });
@@ -221,9 +214,9 @@ app.post('/api/mandatory', authRequired, async (req, res) => {
 app.put('/api/mandatory/:id', authRequired, async (req, res) => {
   try {
     const { name, amount, category, day, type, status } = req.body;
-    await pool.query(
-      `UPDATE mandatory_payments SET name = $1, amount = $2, category = $3, day = $4, type = $5, status = $6
-       WHERE id = $7 AND user_id = $8`,
+    await query(
+      `UPDATE mandatory_payments SET name = ?, amount = ?, category = ?, day = ?, type = ?, status = ?
+       WHERE id = ? AND user_id = ?`,
       [name, amount, category, day, type, status, req.params.id, req.userId]
     );
     res.json({ ok: true });
@@ -234,7 +227,7 @@ app.put('/api/mandatory/:id', authRequired, async (req, res) => {
 
 app.delete('/api/mandatory/:id', authRequired, async (req, res) => {
   try {
-    await pool.query('DELETE FROM mandatory_payments WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
+    await query('DELETE FROM mandatory_payments WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -243,9 +236,9 @@ app.delete('/api/mandatory/:id', authRequired, async (req, res) => {
 
 app.patch('/api/mandatory/:id/toggle', authRequired, async (req, res) => {
   try {
-    await pool.query(
+    await query(
       `UPDATE mandatory_payments SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END
-       WHERE id = $1 AND user_id = $2`,
+       WHERE id = ? AND user_id = ?`,
       [req.params.id, req.userId]
     );
     res.json({ ok: true });
@@ -278,13 +271,13 @@ app.get('/telegram_callback', (req, res) => {
 (async () => {
   // Авто-миграция БД при старте (idempotent — безопасно при повторном запуске)
   try {
-    await runMigration(pool);
+    runMigration();
     console.log('✅ DB migration applied');
   } catch (e) {
     console.error('❌ Migration error:', e.message);
   }
 
-  const bot = createBot(process.env.BOT_TOKEN, APP_URL, pool);
+  const bot = createBot(process.env.BOT_TOKEN, APP_URL, { query });
   if (bot) launchBot();
 
   app.listen(PORT, () => {

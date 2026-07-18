@@ -7,26 +7,26 @@ const { Telegraf, Markup } = require('telegraf');
 const { upsertUserByTg, signToken } = require('./auth');
 
 let bot = null;
-let pool = null;
+let query = null;
 const PORT = process.env.PORT || 3000;
 const BASE = `http://127.0.0.1:${PORT}`;
 
 const tokens = new Map();   // chatId -> JWT
 const states = new Map();   // chatId -> 'income' | 'expense'
 
-function createBot(token, appUrl, dbPool) {
+function createBot(token, appUrl, db) {
   if (!token || token === 'your_bot_token_from_botfather') {
     console.log('⚠️  BOT_TOKEN not configured. Bot disabled.');
     return null;
   }
-  pool = dbPool;
+  query = db.query;
   bot = new Telegraf(token);
 
   // Получить (или создать) токен для пользователя Telegram
   async function getToken(ctx) {
     const chatId = ctx.chat.id;
     if (tokens.has(chatId)) return tokens.get(chatId);
-    const u = await upsertUserByTg(pool, ctx.from.id, ctx.from.first_name, ctx.from.username);
+    const u = await upsertUserByTg(query, ctx.from.id, ctx.from.first_name, ctx.from.username);
     const tk = signToken(u);
     tokens.set(chatId, tk);
     return tk;

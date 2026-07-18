@@ -10,10 +10,10 @@ function uid() {
 
 // GET /api/goals
 router.get('/', async (req, res) => {
-  const pool = req.app.locals.pool;
+  const { query } = req.app.locals.db;
   try {
-    const result = await pool.query(
-      'SELECT * FROM goals WHERE user_id = $1 ORDER BY created_at ASC',
+    const result = await query(
+      'SELECT * FROM goals WHERE user_id = ? ORDER BY created_at ASC',
       [req.userId]
     );
     res.json(result.rows.map(r => ({
@@ -30,11 +30,11 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const { title, target_amount, deadline, current_amount } = req.body || {};
   if (!title || !target_amount) return res.status(400).json({ error: 'Укажите название и сумму цели' });
-  const pool = req.app.locals.pool;
+  const { query } = req.app.locals.db;
   try {
     const id = uid();
-    await pool.query(
-      'INSERT INTO goals (id, user_id, title, target_amount, current_amount, deadline) VALUES ($1, $2, $3, $4, $5, $6)',
+    await query(
+      'INSERT INTO goals (id, user_id, title, target_amount, current_amount, deadline) VALUES (?, ?, ?, ?, ?, ?)',
       [id, req.userId, title, parseFloat(target_amount), parseFloat(current_amount) || 0, deadline || null]
     );
     res.json({ id });
@@ -46,11 +46,11 @@ router.post('/', async (req, res) => {
 // PUT /api/goals/:id
 router.put('/:id', async (req, res) => {
   const { title, target_amount, deadline, current_amount } = req.body || {};
-  const pool = req.app.locals.pool;
+  const { query } = req.app.locals.db;
   try {
-    await pool.query(
-      `UPDATE goals SET title=$1, target_amount=$2, deadline=$3, current_amount=$4
-       WHERE id=$5 AND user_id=$6`,
+    await query(
+      `UPDATE goals SET title=?, target_amount=?, deadline=?, current_amount=?
+       WHERE id=? AND user_id=?`,
       [title, parseFloat(target_amount), deadline || null, parseFloat(current_amount) || 0, req.params.id, req.userId]
     );
     res.json({ ok: true });
@@ -62,10 +62,10 @@ router.put('/:id', async (req, res) => {
 // POST /api/goals/:id/contribute — пополнить цель
 router.post('/:id/contribute', async (req, res) => {
   const { amount } = req.body || {};
-  const pool = req.app.locals.pool;
+  const { query } = req.app.locals.db;
   try {
-    await pool.query(
-      'UPDATE goals SET current_amount = current_amount + $1 WHERE id=$2 AND user_id=$3',
+    await query(
+      'UPDATE goals SET current_amount = current_amount + ? WHERE id=? AND user_id=?',
       [parseFloat(amount) || 0, req.params.id, req.userId]
     );
     res.json({ ok: true });
@@ -76,9 +76,9 @@ router.post('/:id/contribute', async (req, res) => {
 
 // DELETE /api/goals/:id
 router.delete('/:id', async (req, res) => {
-  const pool = req.app.locals.pool;
+  const { query } = req.app.locals.db;
   try {
-    await pool.query('DELETE FROM goals WHERE id=$1 AND user_id=$2', [req.params.id, req.userId]);
+    await query('DELETE FROM goals WHERE id=? AND user_id=?', [req.params.id, req.userId]);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

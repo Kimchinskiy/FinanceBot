@@ -71,17 +71,17 @@ router.post('/register', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email и пароль обязательны' });
   if (String(password).length < 6) return res.status(400).json({ error: 'Пароль минимум 6 символов' });
-  const pool = req.app.locals.pool;
+  const { query } = req.app.locals.db;
   try {
-    const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    const exists = await query('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
     if (exists.rows.length) return res.status(409).json({ error: 'Email уже занят' });
     const hash = await bcrypt.hash(password, 10);
     const id = uid();
-    await pool.query(
-      'INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)',
+    await query(
+      'INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)',
       [id, email.toLowerCase(), hash]
     );
-    await ensureDefaultAccount(pool, id);
+    await ensureDefaultAccount(query, id);
     const token = signToken({ id, email: email.toLowerCase() });
     res.json({ token, user: { id, email: email.toLowerCase() } });
   } catch (err) {
@@ -93,9 +93,9 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email и пароль обязательны' });
-  const pool = req.app.locals.pool;
+  const { query } = req.app.locals.db;
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    const result = await query('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]);
     const user = result.rows[0];
     if (!user || !user.password_hash) return res.status(401).json({ error: 'Неверный email или пароль' });
     const ok = await bcrypt.compare(password, user.password_hash);
@@ -112,21 +112,21 @@ router.post('/telegram', async (req, res) => {
   const data = req.body || {};
   if (!verifyTelegramHash(data)) return res.status(401).json({ error: 'Невалидная подпись Telegram' });
   const tgId = String(data.id);
-  const pool = req.app.locals.pool;
+  const { query } = req.app.locals.db;
   try {
-    let result = await pool.query('SELECT * FROM users WHERE tg_id = $1', [tgId]);
+    let result = await query('SELECT * FROM users WHERE tg_id = ?', [tgId]);
     let user = result.rows[0];
     if (!user) {
       const id = uid();
       const email = `tg_${tgId}@telegram.local`;
-      await pool.query(
-        'INSERT INTO users (id, email, tg_id) VALUES ($1, $2, $3) ON CONFLICT (email) DO NOTHING',
+      await query(
+        'INSERT OR IGNORE INTO users (id, email, tg_id) VALUES (?, ?, ?)',
         [id, email, tgId]
       );
-      result = await pool.query('SELECT * FROM users WHERE tg_id = $1', [tgId]);
+      result = await query('SELECT * FROM users WHERE tg_id = ?', [tgId]);
       user = result.rows[0];
     }
-    await ensureDefaultAccount(pool, user.id);
+    await ensureDefaultAccount(query, user.id);
     const token = signToken({ id: user.id, email: user.email, tg_id: user.tg_id });
     res.json({ token, user: { id: user.id, email: user.email, tg_id: user.tg_id, first_name: data.first_name } });
   } catch (err) {
@@ -136,9 +136,9 @@ router.post('/telegram', async (req, res) => {
 
 // GET /api/auth/me — профиль по токену
 router.get('/me', authRequired, async (req, res) => {
-  const pool = req.app.locals.pool;
+  const { query } = req.app.locals.db;
   try {
-    const result = await pool.query('SELECT id, email, tg_id, created_at FROM users WHERE id = $1', [req.userId]);
+    const result = await query('SELECT id, email, tg_id, created_at FROM users WHERE id = ?', [req.userId]);
     if (!result.rows.length) return res.status(404).json({ error: 'Пользователь не найден' });
     res.json({ user: result.rows[0] });
   } catch (err) {
@@ -147,20 +147,20 @@ router.get('/me', authRequired, async (req, res) => {
 });
 
 // Создать дефолтные счета «Наличные» и «Карта», если их ещё нет
-async function ensureDefaultAccount(pool, userId) {
+async function ensureDefaultAccount(query, userId) {
   const defaults = [
     { name: 'Наличные', type: 'cash' },
     { name: 'Карта',    type: 'card' },
   ];
   for (const acc of defaults) {
-    const r = await pool.query(
-      'SELECT 1 FROM accounts WHERE user_id = $1 AND name = $2',
+    const r = await query(
+      'SELECT 1 FROM accounts WHERE user_id = ? AND name = ?',
       [userId, acc.name]
     );
     if (!r.rows.length) {
-      await pool.query(
+      await query(
         `INSERT INTO accounts (id, user_id, name, type, currency, balance)
-         VALUES ($1, $2, $3, $4, 'RUB', 0)`,
+         VALUES (?, ?, ?, ?, 'RUB', 0)`,
         [uid(), userId, acc.name, acc.type]
       );
     }
@@ -168,21 +168,21 @@ async function ensureDefaultAccount(pool, userId) {
 }
 
 // Создать/найти пользователя по Telegram ID (использует бот, которому можно доверять)
-async function upsertUserByTg(pool, tgId, first_name, username) {
+async function upsertUserByTg(query, tgId, first_name, username) {
   const idStr = String(tgId);
-  let result = await pool.query('SELECT * FROM users WHERE tg_id = $1', [idStr]);
+  let result = await query('SELECT * FROM users WHERE tg_id = ?', [idStr]);
   let user = result.rows[0];
   if (!user) {
     const id = uid();
     const email = `tg_${idStr}@telegram.local`;
-    await pool.query(
-      'INSERT INTO users (id, email, tg_id) VALUES ($1, $2, $3) ON CONFLICT (email) DO NOTHING',
+    await query(
+      'INSERT OR IGNORE INTO users (id, email, tg_id) VALUES (?, ?, ?)',
       [id, email, idStr]
     );
-    result = await pool.query('SELECT * FROM users WHERE tg_id = $1', [idStr]);
+    result = await query('SELECT * FROM users WHERE tg_id = ?', [idStr]);
     user = result.rows[0];
   }
-  await ensureDefaultAccount(pool, user.id);
+  await ensureDefaultAccount(query, user.id);
   return user;
 }
 

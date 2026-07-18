@@ -38,23 +38,23 @@ async function openRouterChat(messages, temperature = 0.7) {
 }
 
 // Анонимизированная сводка пользователя за последние 3 месяца
-async function buildSummary(pool, userId) {
+async function buildSummary(query, userId) {
   const monthAgo = new Date(); monthAgo.setMonth(monthAgo.getMonth() - 1);
   const threeAgo = new Date(); threeAgo.setMonth(threeAgo.getMonth() - 3);
 
   const groupSql = (table) => `
     SELECT category, COALESCE(SUM(amount),0) AS total
-    FROM ${table} WHERE user_id=$1 AND datetime >= $2 GROUP BY category ORDER BY total DESC`;
+    FROM ${table} WHERE user_id=? AND datetime >= ? GROUP BY category ORDER BY total DESC`;
 
   const [inc, exp, mand, goals] = await Promise.all([
-    pool.query(groupSql('incomes'), [userId, threeAgo.toISOString()]),
-    pool.query(groupSql('expenses'), [userId, threeAgo.toISOString()]),
-    pool.query('SELECT name, amount, type, day, status FROM mandatory_payments WHERE user_id=$1', [userId]),
-    pool.query('SELECT title, target_amount, current_amount, deadline FROM goals WHERE user_id=$1', [userId]),
+    query(groupSql('incomes'), [userId, threeAgo.toISOString()]),
+    query(groupSql('expenses'), [userId, threeAgo.toISOString()]),
+    query('SELECT name, amount, type, day, status FROM mandatory_payments WHERE user_id=?', [userId]),
+    query('SELECT title, target_amount, current_amount, deadline FROM goals WHERE user_id=?', [userId]),
   ]);
 
   // Расходы текущего месяца vs среднего за 3 месяца по категориям
-  const curMonth = await pool.query(groupSql('expenses'), [userId, monthAgo.toISOString()]);
+  const curMonth = await query(groupSql('expenses'), [userId, monthAgo.toISOString()]);
 
   const fmtGroups = (rows) => rows.rows.length
     ? rows.rows.map(r => `  • ${r.category}: ${rub(r.total)}`).join('\n')
@@ -74,16 +74,16 @@ async function buildSummary(pool, userId) {
 }
 
 // Rule-based советы (детерминированные, без LLM)
-async function ruleBasedAdvice(pool, userId) {
+async function ruleBasedAdvice(query, userId) {
   const monthAgo = new Date(); monthAgo.setMonth(monthAgo.getMonth() - 1);
   const threeAgo = new Date(); threeAgo.setMonth(threeAgo.getMonth() - 3);
 
-  const cur = await pool.query(
+  const cur = await query(
     `SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses
-     WHERE user_id=$1 AND datetime >= $2 GROUP BY category`, [userId, monthAgo.toISOString()]);
-  const prev = await pool.query(
+     WHERE user_id=? AND datetime >= ? GROUP BY category`, [userId, monthAgo.toISOString()]);
+  const prev = await query(
     `SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses
-     WHERE user_id=$1 AND datetime >= $2 AND datetime < $3 GROUP BY category`,
+     WHERE user_id=? AND datetime >= ? AND datetime < ? GROUP BY category`,
     [userId, threeAgo.toISOString(), monthAgo.toISOString()]);
 
   const prevAvg = {};
@@ -98,13 +98,13 @@ async function ruleBasedAdvice(pool, userId) {
     }
   });
 
-  const goals = await pool.query('SELECT title, target_amount, current_amount FROM goals WHERE user_id=$1', [userId]);
+  const goals = await query('SELECT title, target_amount, current_amount FROM goals WHERE user_id=?', [userId]);
   goals.rows.forEach(g => {
     const pct = Math.round((Number(g.current_amount) / Number(g.target_amount)) * 100);
     if (pct < 100) tips.push(`По цели «${g.title}» накоплено ${pct}%. Продолжайте регулярно откладывать — это формирует привычку копить.`);
   });
 
-  const mand = await pool.query("SELECT COUNT(*) AS c FROM mandatory_payments WHERE user_id=$1 AND status<>'paid'", [userId]);
+  const mand = await query("SELECT COUNT(*) AS c FROM mandatory_payments WHERE user_id=? AND status<>'paid'", [userId]);
   if (Number(mand.rows[0].c) > 0) {
     tips.push(`У вас ${mand.rows[0].c} неоплаченных обязательных платежей. Запланируйте их оплату заранее, чтобы избежать просрочек.`);
   }
@@ -118,9 +118,9 @@ async function ruleBasedAdvice(pool, userId) {
 
 // POST /api/ai/advice — еженедельный/месячный дайджест из 3+ советов
 router.post('/advice', async (req, res) => {
-  const pool = req.app.locals.pool;
+  const { query } = req.app.locals.db;
   try {
-    const summary = await buildSummary(pool, req.userId);
+    const summary = await buildSummary(query, req.userId);
     const aiText = await openRouterChat([
       { role: 'system', content: 'Ты — финансовый ассистент. Дай 3-5 конкретных, дружелюбных и практичных совета по управлению личными финансами на основе сводки. Каждый совет с новой строки, без нумерации и без заголовков. Пиши на русском, кратко.' },
       { role: 'user', content: summary },
@@ -129,7 +129,7 @@ router.post('/advice', async (req, res) => {
       const tips = aiText.split('\n').map(s => s.replace(/^[-•]\s*/, '').trim()).filter(Boolean);
       return res.json({ tips, source: 'ai' });
     }
-    const tips = await ruleBasedAdvice(pool, req.userId);
+    const tips = await ruleBasedAdvice(query, req.userId);
     res.json({ tips, source: 'rules' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -138,11 +138,11 @@ router.post('/advice', async (req, res) => {
 
 // POST /api/ai/chat — диалог с ассистентом
 router.post('/chat', async (req, res) => {
-  const pool = req.app.locals.pool;
+  const { query } = req.app.locals.db;
   const { message, history } = req.body || {};
   if (!message) return res.status(400).json({ error: 'Пустое сообщение' });
   try {
-    const summary = await buildSummary(pool, req.userId);
+    const summary = await buildSummary(query, req.userId);
     const messages = [
       { role: 'system', content: 'Ты — персональный финансовый помощник в приложении FinanceBot. Отвечай на русском, дружелюбно и по делу. Учитывай финансовую сводку пользователя, но не выдумывай точные цифры, которых нет в сводке. Помогай сокращать расходы, копить и гасить долги.\n\nСводка пользователя:\n' + summary },
     ];
