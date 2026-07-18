@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { query } = require('./db');
 const { createBot, launchBot, stopBot } = require('./bot');
 const { router: authRouter, authRequired, upsertUserByTg, signToken } = require('./auth');
@@ -20,16 +21,35 @@ app.locals.db = { query };
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname), {
-  maxAge: 0,
-  setHeaders: (res, filePath) => {
-    if (/\.(html|css|js)$/.test(filePath)) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
+
+// Статика собранного React-фронта (Vite), если собран
+const WEB_DIST = path.join(__dirname, 'web', 'dist');
+const hasWebDist = fs.existsSync(WEB_DIST);
+
+if (hasWebDist) {
+  app.use(express.static(WEB_DIST, {
+    maxAge: 0,
+    setHeaders: (res, filePath) => {
+      if (/\.(html|css|js)$/.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
     }
-  }
-}));
+  }));
+} else {
+  // Fallback: старый ванильный фронт (до сборки React)
+  app.use(express.static(path.join(__dirname), {
+    maxAge: 0,
+    setHeaders: (res, filePath) => {
+      if (/\.(html|css|js)$/.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+    }
+  }));
+}
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -252,6 +272,14 @@ app.use('/api/accounts', authRequired, accountsRouter);
 app.use('/api/goals', authRequired, goalsRouter);
 app.use('/api/ai', authRequired, aiRouter);
 app.use('/api/quotes', authRequired, quotesRouter);
+
+/* ──────────────────── SPA FALLBACK (React) ──────────────────── */
+// Все не-API GET-запросы отдаём index.html собранного фронта
+if (hasWebDist) {
+  app.get(/^\/(?!api\/|telegram_callback).*/, (req, res) => {
+    res.sendFile(path.join(WEB_DIST, 'index.html'));
+  });
+}
 
 /* ──────────────────── TELEGRAM LOGIN CALLBACK ──────────────────── */
 // Telegram Login Widget редиректит сюда, мы перенаправляем в приложение (URL scheme).
