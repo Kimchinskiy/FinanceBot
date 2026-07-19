@@ -1,3 +1,3 @@
-const navigationMenuTriggerStyle = () => 'navigation-menu-trigger';
+const navigationMenuTriggerStyle = () => 'navigation-menu-trigger-style';
 
 export { navigationMenuTriggerStyle };
