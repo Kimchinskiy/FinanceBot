@@ -5,7 +5,7 @@ import { findAccountByName, fmt, DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS } fro
 import TelegramLoginButton from '../components/TelegramLoginButton.jsx';
 
 export default function Settings({ toast }) {
-  const { state, update, reload, setQuotesConfig, user, linkTelegram } = useStore();
+  const { state, update, reload, setQuotesConfig, user, linkTelegram, logout } = useStore();
   const [cash, setCash] = useState(findAccountByName(state.accounts, 'Наличные')?.balance ?? '');
   const [card, setCard] = useState(findAccountByName(state.accounts, 'Карта')?.balance ?? '');
   const [salaryDay, setSalaryDay] = useState(state.salary.day || '');
@@ -178,6 +178,13 @@ export default function Settings({ toast }) {
           </div>
           <hr style={{ borderColor: 'var(--border)', margin: '12px 0' }} />
           <button className="btn-danger" onClick={clearData}>🗑️ Очистить все данные</button>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header"><span>🔓 Сессия</span></div>
+        <div className="settings-form">
+          <button className="btn-outline" onClick={logout}>Выйти из аккаунта</button>
         </div>
       </div>
     </div>

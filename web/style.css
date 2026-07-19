@@ -575,7 +575,7 @@ body {
   background: var(--bg-elevated);
   color: var(--text-secondary);
 }
-.src-badge {
+ .src-badge {
   display: inline-block;
   padding: 3px 11px;
   border-radius: 980px;
@@ -585,6 +585,9 @@ body {
   color: var(--text-secondary);
   white-space: nowrap;
 }
+.badge-income { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
+.badge-expense { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+.ops-tabs { margin-bottom: 16px; }
 .action-btn {
   background: none;
   border: none;
@@ -1011,34 +1014,38 @@ body {
   .navbar-actions .btn-outline { padding: 7px 14px; }
 
   /* ── Mobile: hide desktop nav inside top bar, show separate bottom tab bar ── */
+  .navbar-actions { display: none !important; }
   .desktop-nav { display: none !important; }
   .mobile-tabbar {
     position: fixed;
     left: 0; right: 0; bottom: 0;
     z-index: 200;
     display: flex !important;
-    gap: 0;
+    justify-content: center;
+    gap: 6px;
     width: 100%;
+    max-width: 540px;
+    margin: 0 auto;
     background: rgba(255,255,255,0.96);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
     border-top: 1px solid var(--border);
-    padding: 6px 2px calc(6px + env(safe-area-inset-bottom, 0px));
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
     overflow-x: auto;
     scrollbar-width: none;
   }
   .mobile-tabbar::-webkit-scrollbar { display: none; }
   .mobile-tabbar .nav-item {
-    flex: 1 1 0;
-    min-width: 0;
+    flex: 0 0 auto;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 3px;
-    padding: 6px 2px;
-    border-radius: 10px;
+    padding: 6px 12px;
+    border-radius: 12px;
     background: none !important;
     color: var(--text-muted);
+    min-width: 0;
   }
   .mobile-tabbar .nav-item.active {
     background: none !important;
@@ -1047,7 +1054,7 @@ body {
   }
   .mobile-tabbar .nav-item:hover { background: none; }
   .nav-ico { display: block; font-size: 22px; line-height: 1; }
-  .nav-txt { font-size: 10px; font-weight: 500; letter-spacing: -0.02em; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .nav-txt { font-size: 10px; font-weight: 500; letter-spacing: -0.02em; white-space: nowrap; }
 
   /* Space for bottom bar + FAB (FAB sits above the tab bar) */
   body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }

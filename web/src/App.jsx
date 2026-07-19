@@ -8,8 +8,7 @@ import QuickAddModal from './components/QuickAddModal.jsx';
 import MandatoryModal from './components/MandatoryModal.jsx';
 import DebtModal from './components/DebtModal.jsx';
 import Dashboard from './pages/Dashboard.jsx';
-import Incomes from './pages/Incomes.jsx';
-import Expenses from './pages/Expenses.jsx';
+import Operations from './pages/Operations.jsx';
 import Mandatory from './pages/Mandatory.jsx';
 import Assets from './pages/Assets.jsx';
 import Debts from './pages/Debts.jsx';
@@ -25,7 +24,7 @@ import {
 } from './components/NavigationMenu.jsx';
 
 const TITLES = {
-  dashboard: 'Обзор', income: 'Доходы', expenses: 'Расходы',
+  dashboard: 'Обзор', operations: 'Операции',
   mandatory: 'Обязательные платежи', assets: 'Активы', debts: 'Долги', analytics: 'Аналитика', settings: 'Настройки'
 };
 
@@ -113,7 +112,6 @@ function AppInner() {
 
         <div className="navbar-actions">
           <button className="btn-primary" onClick={() => openQuickAdd('expense')}>+ Добавить</button>
-          <button className="btn-outline" onClick={logout}>Выйти</button>
         </div>
       </nav>
 
@@ -129,8 +127,7 @@ function AppInner() {
 
         <div className="page active" key={page}>
           {page === 'dashboard' && <Dashboard />}
-          {page === 'income' && <Incomes onDelete={() => toast('Удалено')} />}
-          {page === 'expenses' && <Expenses onDelete={() => toast('Удалено')} />}
+          {page === 'operations' && <Operations toast={toast} onDelete={() => toast('Удалено')} />}
            {page === 'mandatory' && <Mandatory onEdit={openMandatory} onDelete={() => toast('Удалено')} />}
            {page === 'assets' && <Assets toast={toast} />}
            {page === 'debts' && <Debts onEdit={openDebt} onDelete={() => toast('Удалено')} />}
@@ -178,13 +175,12 @@ function AppInner() {
   );
 }
 
-const NAV_ICONS = { dashboard: '🏠', income: '📈', expenses: '📉', mandatory: '📅', assets: '💎', debts: '🤝', analytics: '📊', settings: '⚙️' };
+const NAV_ICONS = { dashboard: '🏠', income: '📈', expenses: '📉', operations: '💱', mandatory: '📅', assets: '💎', debts: '🤝', analytics: '📊', settings: '⚙️' };
 
-// Плоский порядок пунктов меню (используется и на ПК, и на мобильном)
+// Плоский порядок пунктов меню (7 пунктов — чтобы не перегружать UI)
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Обзор' },
-  { id: 'income', label: 'Доходы' },
-  { id: 'expenses', label: 'Расходы' },
+  { id: 'operations', label: 'Операции' },
   { id: 'debts', label: 'Долги' },
   { id: 'mandatory', label: 'Платежи' },
   { id: 'assets', label: 'Активы' },

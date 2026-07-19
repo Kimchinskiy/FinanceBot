@@ -99,7 +99,7 @@ export default function Dashboard() {
         <div className="panel">
           <div className="panel-header">
             <span>Последние операции</span>
-            <button className="link-btn" data-nav="expenses">Все →</button>
+            <button className="link-btn" data-nav="operations">Все →</button>
           </div>
           <div className="transactions-list">
             {all.length === 0 ? (
