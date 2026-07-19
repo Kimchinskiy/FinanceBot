@@ -1006,14 +1006,10 @@ body {
 }
 
 @media (max-width: 700px) {
-  /* ── Top bar: only logo + logout ── */
-  .navbar { padding: 0 14px; height: 50px; justify-content: space-between; }
-  .navbar-logo .logo-text { display: inline; font-size: 16px; }
-  .navbar-logo { margin-right: 0; }
-  .navbar-actions #quick-add-btn { display: none; }
-  .navbar-actions .btn-outline { padding: 7px 14px; }
+  /* ── Mobile: hide top navbar entirely (nav lives in bottom tab bar) ── */
+  .navbar { display: none !important; }
 
-  /* ── Mobile: hide desktop nav inside top bar, show separate bottom tab bar ── */
+  /* ── Mobile: show separate bottom tab bar ── */
   .navbar-actions { display: none !important; }
   .desktop-nav { display: none !important; }
   .mobile-tabbar {
