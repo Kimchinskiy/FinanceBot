@@ -66,6 +66,25 @@ body {
 ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.24); }
 
+/* ===== TELEGRAM LOGIN ===== */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 18px 0 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.auth-divider::before, .auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.auth-divider span { padding: 0 12px; }
+.tg-login-btn { display: flex; justify-content: center; }
+.settings-form .tg-login-btn { margin-top: 4px; }
+
 /* ===== NAVBAR ===== */
 .navbar {
   position: sticky;

@@ -13,6 +13,7 @@ import Mandatory from './pages/Mandatory.jsx';
 import Assets from './pages/Assets.jsx';
 import Analytics from './pages/Analytics.jsx';
 import Settings from './pages/Settings.jsx';
+import TelegramLoginButton from './components/TelegramLoginButton.jsx';
 import {
   NavigationMenu,
   NavigationMenuList,
@@ -27,7 +28,7 @@ const TITLES = {
 };
 
 function AppInner() {
-  const { token, state, login, register, logout, startApp, reload } = useStore();
+  const { token, state, login, register, logout, startApp, reload, loginTelegram } = useStore();
   const { toasts, show, ToastContainer } = useToast();
   const [page, setPage] = useState('dashboard');
   const [quickOpen, setQuickOpen] = useState(false);
@@ -72,10 +73,13 @@ function AppInner() {
   }, []);
 
   if (!token) {
-    return <AuthScreen onAuth={async (email, password, mode) => {
-      if (mode === 'register') await register(email, password);
-      else await login(email, password);
-    }} ToastContainer={ToastContainer} toast={toast} />;
+    return <AuthScreen
+      onAuth={async (email, password, mode) => {
+        if (mode === 'register') await register(email, password);
+        else await login(email, password);
+      }}
+      onTelegram={async (user) => { await loginTelegram(user); }}
+      ToastContainer={ToastContainer} toast={toast} />;
   }
 
   return (
@@ -147,12 +151,13 @@ function AppInner() {
 
 const NAV_ICONS = { dashboard: '🏠', income: '📈', expenses: '📉', mandatory: '📅', assets: '💎', analytics: '📊', settings: '⚙️' };
 
-function AuthScreen({ onAuth, toast }) {
+function AuthScreen({ onAuth, onTelegram, toast }) {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [allowRegister, setAllowRegister] = useState(true);
+  const [tgLoading, setTgLoading] = useState(false);
 
   useEffect(() => {
     api('GET', '/auth/config').then(cfg => {
@@ -167,6 +172,19 @@ function AuthScreen({ onAuth, toast }) {
       await onAuth(email.trim(), password, mode);
     } catch (err) {
       setError(err.message === 'unauthorized' ? 'Неверный email или пароль' : (err.message || 'Ошибка входа'));
+    }
+  };
+
+  const handleTelegram = async (user) => {
+    setTgLoading(true);
+    setError('');
+    try {
+      const res = await onTelegram(user);
+      if (res && res.error) setError(res.error);
+    } catch (err) {
+      setError(err.message || 'Ошибка входа через Telegram');
+    } finally {
+      setTgLoading(false);
     }
   };
 
@@ -189,6 +207,9 @@ function AuthScreen({ onAuth, toast }) {
           </div>
           <button type="submit" className="btn-primary auth-submit">{mode === 'login' ? 'Войти' : 'Зарегистрироваться'}</button>
         </form>
+        <div className="auth-divider"><span>или</span></div>
+        <TelegramLoginButton onAuth={handleTelegram} />
+        {tgLoading && <p className="auth-error">Вход через Telegram…</p>}
         <p className="auth-error">{error}</p>
         {allowRegister && (
           <p className="auth-switch">

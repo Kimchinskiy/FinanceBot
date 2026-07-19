@@ -88,6 +88,29 @@ export function StoreProvider({ children }) {
     return res;
   }, []);
 
+  // Вход по Telegram Login Widget. Если уже авторизованы (есть токен) —
+  // передаём его в заголовке, чтобы бэкенд привязал tg_id к аккаунту.
+  const loginTelegram = useCallback(async (tgData) => {
+    const headers = { 'Content-Type': 'application/json' };
+    const t = getToken();
+    if (t) headers['Authorization'] = 'Bearer ' + t;
+    const res = await fetch('/api/auth/telegram', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(tgData),
+    }).then(r => r.json());
+    if (res.token) {
+      setSession(res.token, res.user);
+      setTokenState(res.token);
+      setUserState(res.user);
+    }
+    return res;
+  }, []);
+
+  const linkTelegram = useCallback(async (tgData) => {
+    return api('POST', '/auth/link-telegram', tgData);
+  }, []);
+
   const logout = useCallback(() => {
     clearToken();
     setTokenState(null);
@@ -109,7 +132,7 @@ export function StoreProvider({ children }) {
       token, user, state, loading,
       quotesConfig, setQuotesConfig,
       loadAll, startApp, refreshQuotesConfig,
-      login, register, logout,
+      login, register, logout, loginTelegram, linkTelegram,
       reload, update, setState,
     }}>
       {children}

@@ -108,12 +108,31 @@ router.post('/login', async (req, res) => {
 });
 
 // POST /api/auth/telegram  (Telegram Login Widget)
+// Если передан валидный JWT (заголовок Authorization) — привязываем tg_id к
+// текущему аккаунту (link). Иначе ищем пользователя по tg_id; если нет —
+// создаём нового. Если по tg_id найден существующий аккаунт (даже с email) —
+// логиним именно его.
 router.post('/telegram', async (req, res) => {
   const data = req.body || {};
   if (!verifyTelegramHash(data)) return res.status(401).json({ error: 'Невалидная подпись Telegram' });
   const tgId = String(data.id);
   const { query } = req.app.locals.db;
   try {
+    // Привязка к уже авторизованному аккаунту
+    const header = req.headers.authorization || '';
+    const m = header.match(/^Bearer\s+(.+)$/i);
+    if (m) {
+      try {
+        const payload = verifyToken(m[1]);
+        await query('UPDATE users SET tg_id = ? WHERE id = ?', [tgId, payload.sub]);
+        const r = await query('SELECT * FROM users WHERE id = ?', [payload.sub]);
+        const user = r.rows[0];
+        await ensureDefaultAccount(query, user.id);
+        const token = signToken({ id: user.id, email: user.email, tg_id: user.tg_id });
+        return res.json({ token, user: { id: user.id, email: user.email, tg_id: user.tg_id, first_name: data.first_name } });
+      } catch (_) { /* невалидный токен — падаем ниже в обычный логин */ }
+    }
+
     let result = await query('SELECT * FROM users WHERE tg_id = ?', [tgId]);
     let user = result.rows[0];
     if (!user) {
@@ -129,6 +148,23 @@ router.post('/telegram', async (req, res) => {
     await ensureDefaultAccount(query, user.id);
     const token = signToken({ id: user.id, email: user.email, tg_id: user.tg_id });
     res.json({ token, user: { id: user.id, email: user.email, tg_id: user.tg_id, first_name: data.first_name } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/link-telegram — привязать Telegram к аккаунту (требует авторизации)
+router.post('/link-telegram', authRequired, async (req, res) => {
+  const data = req.body || {};
+  if (!verifyTelegramHash(data)) return res.status(401).json({ error: 'Невалидная подпись Telegram' });
+  const tgId = String(data.id);
+  const { query } = req.app.locals.db;
+  try {
+    // Если этот tg_id уже привязан к ДРУГОМУ аккаунту — отказываем
+    const existing = await query('SELECT id FROM users WHERE tg_id = ? AND id != ?', [tgId, req.userId]);
+    if (existing.rows.length) return res.status(409).json({ error: 'Этот Telegram уже привязан к другому аккаунту' });
+    await query('UPDATE users SET tg_id = ? WHERE id = ?', [tgId, req.userId]);
+    res.json({ ok: true, tg_id: tgId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

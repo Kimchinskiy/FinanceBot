@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useStore } from '../store.jsx';
 import { api } from '../api.js';
 import { findAccountByName, fmt, DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS } from '../utils.js';
+import TelegramLoginButton from '../components/TelegramLoginButton.jsx';
 
 export default function Settings({ toast }) {
-  const { state, update, reload, setQuotesConfig } = useStore();
+  const { state, update, reload, setQuotesConfig, user, linkTelegram } = useStore();
   const [cash, setCash] = useState(findAccountByName(state.accounts, 'Наличные')?.balance ?? '');
   const [card, setCard] = useState(findAccountByName(state.accounts, 'Карта')?.balance ?? '');
   const [salaryDay, setSalaryDay] = useState(state.salary.day || '');
@@ -148,6 +149,22 @@ export default function Settings({ toast }) {
             <input type="text" className="input-field" placeholder="Новая категория" value={newExpenseCat} onChange={(e) => setNewExpenseCat(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCat('expense')} />
             <button className="btn-outline" onClick={() => addCat('expense')}>+</button>
           </div>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header"><span>💬 Telegram</span></div>
+        <div className="settings-form">
+          <p className="text-muted">
+            {user?.tg_id ? '✅ Telegram привязан к аккаунту. Можно входить по кнопке «Войти через Telegram».'
+                        : 'Привяжите Telegram, чтобы входить в один клик и получать напоминания о платежах.'}
+          </p>
+          {!user?.tg_id && (
+            <TelegramLoginButton onAuth={async (u) => {
+              try { await linkTelegram(u); toast('Telegram привязан!'); }
+              catch (e) { toast(e.message || 'Ошибка привязки', '#ff3b30'); }
+            }} />
+          )}
         </div>
       </div>
 
