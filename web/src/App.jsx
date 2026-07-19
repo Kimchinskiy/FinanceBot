@@ -21,8 +21,6 @@ import {
   NavigationMenuList,
   NavigationMenuItem,
   NavigationMenuLink,
-  NavigationMenuTrigger,
-  NavigationMenuContent,
   navigationMenuTriggerStyle,
 } from './components/NavigationMenu.jsx';
 
@@ -99,7 +97,7 @@ function AppInner() {
         </div>
         <NavigationMenu className="navbar-nav">
           <NavigationMenuList>
-            {NAV_DIRECT.map(p => (
+            {NAV_ITEMS.map(p => (
               <NavigationMenuItem key={p.id}>
                 <NavigationMenuLink
                   className={`nav-item ${page === p.id ? 'active' : ''} ${navigationMenuTriggerStyle()}`}
@@ -109,43 +107,6 @@ function AppInner() {
                 </NavigationMenuLink>
               </NavigationMenuItem>
             ))}
-            <NavigationMenuItem>
-              <NavigationMenuTrigger className={`nav-item ${NAV_GROUP.items.some(i => i.id === page) ? 'active' : ''}`}>
-                <span className="nav-ico">💼</span><span className="nav-txt">{NAV_GROUP.label}</span>
-              </NavigationMenuTrigger>
-              <NavigationMenuContent className="nav-dropdown">
-                {NAV_GROUP.items.map(i => (
-                  <NavigationMenuLink
-                    key={i.id}
-                    className={`nav-dropdown-link ${page === i.id ? 'active' : ''}`}
-                    onClick={(e) => { e.preventDefault(); navigate(i.id); }}
-                  >
-                    <span className="nav-ico">{NAV_ICONS[i.id]}</span>
-                    <span>{i.label}</span>
-                  </NavigationMenuLink>
-                ))}
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-          </NavigationMenuList>
-        </NavigationMenu>
-
-        <NavigationMenu className="mobile-nav">
-          <NavigationMenuList>
-            <NavigationMenuItem>
-              <NavigationMenuTrigger className="mobile-nav-trigger">☰<span>Меню</span></NavigationMenuTrigger>
-              <NavigationMenuContent className="mobile-nav-panel">
-                {NAV_ALL.map(i => (
-                  <NavigationMenuLink
-                    key={i.id}
-                    className={`mobile-nav-link ${page === i.id ? 'active' : ''}`}
-                    onClick={(e) => { e.preventDefault(); navigate(i.id); }}
-                  >
-                    <span className="nav-ico">{NAV_ICONS[i.id]}</span>
-                    <span>{i.label}</span>
-                  </NavigationMenuLink>
-                ))}
-              </NavigationMenuContent>
-            </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
 
@@ -203,23 +164,17 @@ function AppInner() {
 
 const NAV_ICONS = { dashboard: '🏠', income: '📈', expenses: '📉', mandatory: '📅', assets: '💎', debts: '🤝', analytics: '📊', settings: '⚙️' };
 
-// Группировка пунктов меню для NavigationMenu (desktop: dropdown, mobile: единая панель)
-const NAV_DIRECT = [
+// Плоский порядок пунктов меню (используется и на ПК, и на мобильном)
+const NAV_ITEMS = [
   { id: 'dashboard', label: 'Обзор' },
+  { id: 'income', label: 'Доходы' },
+  { id: 'expenses', label: 'Расходы' },
+  { id: 'debts', label: 'Долги' },
+  { id: 'mandatory', label: 'Платежи' },
+  { id: 'assets', label: 'Активы' },
   { id: 'analytics', label: 'Аналитика' },
-  { id: 'settings', label: 'Настройки' },
+  { id: 'settings', label: 'Ещё' },
 ];
-const NAV_GROUP = {
-  label: 'Финансы',
-  items: [
-    { id: 'income', label: 'Доходы' },
-    { id: 'expenses', label: 'Расходы' },
-    { id: 'mandatory', label: 'Обязательные платежи' },
-    { id: 'debts', label: 'Долги' },
-    { id: 'assets', label: 'Активы' },
-  ],
-};
-const NAV_ALL = [...NAV_DIRECT, ...NAV_GROUP.items];
 
 function AuthScreen({ onAuth, onTelegram, toast }) {
   const [mode, setMode] = useState('login');

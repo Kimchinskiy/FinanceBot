@@ -119,8 +119,9 @@ body {
 .navbar-nav .nav-item {
   display: inline-flex;
   align-items: center;
-  padding: 7px 14px;
-  border-radius: 8px;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 9px;
   color: var(--text-secondary);
   text-decoration: none;
   font-size: 14px;
@@ -141,10 +142,11 @@ body {
   flex-shrink: 0;
 }
 
-/* Nav icons only shown in mobile bottom bar */
-.nav-ico { display: none; }
+/* Nav icons visible on both desktop and mobile */
+.nav-ico { display: inline-block; font-size: 16px; line-height: 1; }
+.nav-txt { display: inline; }
 
-/* Base UI NavigationMenu integration */
+/* Base UI NavigationMenu integration (flat nav) */
 .navigation-menu {
   display: flex;
   align-items: center;
@@ -163,100 +165,8 @@ body {
   min-width: 0;
 }
 .navigation-menu-viewport { display: none; }
-
-/* Trigger (dropdown group) */
-.navigation-menu-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--trans);
-}
-.navigation-menu-trigger:hover,
-.navigation-menu-trigger[data-open] { color: var(--text-primary); background: var(--bg-hover); }
-.navigation-menu-trigger.active { color: var(--text-primary); background: var(--bg-hover); }
-
-/* Dropdown content rendered in viewport */
-.navigation-menu-content.nav-dropdown {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px;
-  min-width: 220px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.18);
-}
-.nav-dropdown-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: 10px;
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--trans);
-}
-.nav-dropdown-link:hover { background: var(--bg-hover); color: var(--text-primary); }
-.nav-dropdown-link.active { background: var(--text-primary); color: #fff; }
-
-/* Mobile nav (NavigationMenu with single Trigger -> panel) */
-.mobile-nav { display: none; }
-.mobile-nav-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  border-radius: 10px;
-  color: var(--text-primary);
-  font: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.mobile-nav-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: min(92vw, 360px);
-  max-height: 70vh;
-  overflow-y: auto;
-  padding: 10px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: 0 16px 40px rgba(0,0,0,0.25);
-}
-.mobile-nav-link {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 14px;
-  border-radius: 12px;
-  color: var(--text-primary);
-  text-decoration: none;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background var(--trans);
-}
-.mobile-nav-link:hover { background: var(--bg-hover); }
-.mobile-nav-link.active { background: var(--accent); color: #fff; }
-.mobile-nav-link .nav-ico { font-size: 20px; }
+.navigation-menu-trigger { display: none; }
+.navigation-menu-content { display: contents; }
 
 /* Floating action button (mobile only) */
 .fab {
@@ -1098,27 +1008,45 @@ body {
   .navbar-actions #quick-add-btn { display: none; }
   .navbar-actions .btn-outline { padding: 7px 14px; }
 
-  /* ── Mobile: hide desktop nav, show burger + dropdown nav ── */
-  .navbar-nav { display: none; }
-  .nav-burger {
-    display: inline-flex;
+  /* ── Mobile: turn navbar-nav into a fixed bottom tab bar ── */
+  .navbar-nav {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 200;
+    display: flex;
+    gap: 0;
+    width: 100%;
+    background: rgba(255,255,255,0.94);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-top: 1px solid var(--border);
+    padding: 6px 2px calc(6px + env(safe-area-inset-bottom, 0px));
+    overflow-x: auto;
+  }
+  .navbar-nav .nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 42px; height: 38px;
-    border: 1px solid var(--border);
-    background: var(--bg-elevated);
+    gap: 3px;
+    padding: 6px 2px;
     border-radius: 10px;
-    color: var(--text-primary);
-    font-size: 18px;
-    cursor: pointer;
-    flex-shrink: 0;
+    background: none !important;
+    color: var(--text-muted);
   }
-  .mobile-nav { display: block; }
-  .nav-ico { display: block; font-size: 20px; line-height: 1; }
+  .navbar-nav .nav-item.active {
+    background: none !important;
+    color: var(--accent);
+    box-shadow: none;
+  }
+  .navbar-nav .nav-item:hover { background: none; }
+  .nav-ico { display: block; font-size: 22px; line-height: 1; }
+  .nav-txt { font-size: 10px; font-weight: 500; letter-spacing: -0.02em; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
-  /* Safe-area for FAB (panel is a dropdown, not a fixed bar) */
-  body { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
-  .fab { display: flex; align-items: center; justify-content: center; }
+  /* Space for bottom bar + FAB (FAB sits above the tab bar) */
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  .fab { display: flex; align-items: center; justify-content: center; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
 
   /* ── Header ── */
   .topbar { padding: 22px 18px 4px; }
