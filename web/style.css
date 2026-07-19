@@ -668,6 +668,23 @@ body {
 .mc-status-btn.mark-unpaid { border-color: var(--border-bright); color: var(--text-secondary); }
 .mc-status-btn.mark-unpaid:hover { background: var(--bg-hover); }
 
+/* ===== DEBTS ===== */
+.debts-summary { display: flex; gap: 14px; margin-bottom: 18px; }
+.ds-card { flex: 1; padding: 16px 18px; border-radius: 18px; background: var(--bg-elevated); border: 1px solid var(--border); }
+.ds-card.negative .ds-value { color: var(--red); }
+.ds-card.positive .ds-value { color: var(--green); }
+.ds-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+.ds-value { font-size: 22px; font-weight: 700; }
+.debt-section { margin-bottom: 22px; }
+.debt-section-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin: 8px 2px 12px; }
+.debt-card { padding: 16px 18px; border-radius: 18px; background: var(--bg-elevated); border: 1px solid var(--border); position: relative; }
+.debt-card.paid-card { opacity: 0.55; }
+.dc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dc-person { font-size: 16px; font-weight: 600; }
+.dc-amount { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+.dc-amount.i_owe { color: var(--red); }
+.dc-amount.owe_me { color: var(--green); }
+
 /* ===== ANALYTICS ===== */
 .analytics-period {
   display: flex;

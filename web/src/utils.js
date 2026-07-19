@@ -94,6 +94,9 @@ export function typeLabel(t) {
   return { monthly: 'Ежемесячно', once: 'Разово', yearly: 'Ежегодно' }[t] || t;
 }
 
+export const DEBT_DIRECTION_LABEL = { i_owe: 'Я должен', owe_me: 'Мне должны' };
+export function debtDirectionLabel(d) { return DEBT_DIRECTION_LABEL[d] || d; }
+
 export function assetEmoji(type) {
   return { deposit: '🏦', crypto: '₿', broker: '📊' }[type] || '💰';
 }

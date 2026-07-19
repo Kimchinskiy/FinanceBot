@@ -11,6 +11,7 @@ export function StoreProvider({ children }) {
     incomes: [],
     expenses: [],
     mandatory: [],
+    debts: [],
     accounts: [],
     salary: { day: null, amount: 0, period: 'monthly' },
     incomeCategories: [...DEFAULT_INCOME_CATS],
@@ -21,10 +22,11 @@ export function StoreProvider({ children }) {
 
   const loadAll = useCallback(async () => {
     try {
-      const [incomes, expenses, mandatory, settings, accounts] = await Promise.all([
+      const [incomes, expenses, mandatory, debts, settings, accounts] = await Promise.all([
         api('GET', '/incomes'),
         api('GET', '/expenses'),
         api('GET', '/mandatory'),
+        api('GET', '/debts'),
         api('GET', '/settings'),
         api('GET', '/accounts'),
       ]);
@@ -33,6 +35,7 @@ export function StoreProvider({ children }) {
         incomes,
         expenses,
         accounts: accounts || [],
+        debts: (debts || []).map(d => ({ ...d, amount: parseFloat(d.amount) })),
         mandatory: mandatory.map(m => ({ ...m, amount: parseFloat(m.amount) })),
         salary: settings.salary
           ? (typeof settings.salary === 'string' ? JSON.parse(settings.salary) : settings.salary)
@@ -122,6 +125,7 @@ export function StoreProvider({ children }) {
     if (key === 'incomes') { const d = await api('GET', '/incomes'); setState(s => ({ ...s, incomes: d })); }
     else if (key === 'expenses') { const d = await api('GET', '/expenses'); setState(s => ({ ...s, expenses: d })); }
     else if (key === 'mandatory') { const d = await api('GET', '/mandatory'); setState(s => ({ ...s, mandatory: d })); }
+    else if (key === 'debts') { const d = await api('GET', '/debts'); setState(s => ({ ...s, debts: d })); }
     else if (key === 'accounts') { const d = await api('GET', '/accounts'); setState(s => ({ ...s, accounts: d })); }
   }, []);
 

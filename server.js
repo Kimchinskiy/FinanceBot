@@ -267,6 +267,66 @@ app.patch('/api/mandatory/:id/toggle', authRequired, async (req, res) => {
   }
 });
 
+/* ──────────────────── DEBTS (per-user) ──────────────────── */
+app.get('/api/debts', authRequired, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM debts WHERE user_id = ? ORDER BY created_at DESC', [req.userId]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/debts', authRequired, async (req, res) => {
+  try {
+    const { person, amount, note, direction, status, due_date } = req.body;
+    const id = uid();
+    await query(
+      'INSERT INTO debts (id, user_id, person, amount, note, direction, status, due_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, req.userId, person, amount, note || '', direction || 'i_owe', status || 'pending', due_date || null]
+    );
+    res.json({ id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/debts/:id', authRequired, async (req, res) => {
+  try {
+    const { person, amount, note, direction, status, due_date } = req.body;
+    await query(
+      `UPDATE debts SET person = ?, amount = ?, note = ?, direction = ?, status = ?, due_date = ?
+       WHERE id = ? AND user_id = ?`,
+      [person, amount, note, direction, status, due_date, req.params.id, req.userId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/debts/:id', authRequired, async (req, res) => {
+  try {
+    await query('DELETE FROM debts WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/debts/:id/toggle', authRequired, async (req, res) => {
+  try {
+    await query(
+      `UPDATE debts SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END
+       WHERE id = ? AND user_id = ?`,
+      [req.params.id, req.userId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /* ──────────────────── ACCOUNTS / GOALS / AI (per-user) ──────────────────── */
 app.use('/api/accounts', authRequired, accountsRouter);
 app.use('/api/goals', authRequired, goalsRouter);

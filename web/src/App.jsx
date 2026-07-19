@@ -6,11 +6,13 @@ import { useToast } from './components/Toast.jsx';
 import ConfirmDialog from './components/ConfirmDialog.jsx';
 import QuickAddModal from './components/QuickAddModal.jsx';
 import MandatoryModal from './components/MandatoryModal.jsx';
+import DebtModal from './components/DebtModal.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Incomes from './pages/Incomes.jsx';
 import Expenses from './pages/Expenses.jsx';
 import Mandatory from './pages/Mandatory.jsx';
 import Assets from './pages/Assets.jsx';
+import Debts from './pages/Debts.jsx';
 import Analytics from './pages/Analytics.jsx';
 import Settings from './pages/Settings.jsx';
 import TelegramLoginButton from './components/TelegramLoginButton.jsx';
@@ -24,7 +26,7 @@ import {
 
 const TITLES = {
   dashboard: 'Обзор', income: 'Доходы', expenses: 'Расходы',
-  mandatory: 'Обязательные платежи', assets: 'Активы', analytics: 'Аналитика', settings: 'Настройки'
+  mandatory: 'Обязательные платежи', assets: 'Активы', debts: 'Долги', analytics: 'Аналитика', settings: 'Настройки'
 };
 
 function AppInner() {
@@ -35,12 +37,15 @@ function AppInner() {
   const [quickType, setQuickType] = useState('expense');
   const [mandOpen, setMandOpen] = useState(false);
   const [mandEditing, setMandEditing] = useState(null);
+  const [debtOpen, setDebtOpen] = useState(false);
+  const [debtEditing, setDebtEditing] = useState(null);
   const [confirm, setConfirm] = useState(null);
 
   const toast = show;
 
   const openQuickAdd = (type) => { setQuickType(type); setQuickOpen(true); };
   const openMandatory = (m) => { setMandEditing(m || null); setMandOpen(true); };
+  const openDebt = (d) => { setDebtEditing(d || null); setDebtOpen(true); };
 
   const navigate = (p) => setPage(p);
 
@@ -66,6 +71,7 @@ function AppInner() {
         if (a === 'add-income') openQuickAdd('income');
         if (a === 'add-expense') openQuickAdd('expense');
         if (a === 'add-mandatory') openMandatory(null);
+        if (a === 'add-debt') openDebt(null);
       }
     };
     document.addEventListener('click', handler);
@@ -91,7 +97,7 @@ function AppInner() {
         </div>
         <NavigationMenu className="navbar-nav" viewport={false}>
           <NavigationMenuList>
-            {['dashboard','income','expenses','mandatory','assets','analytics','settings'].map(p => (
+            {['dashboard','income','expenses','mandatory','assets','debts','analytics','settings'].map(p => (
               <NavigationMenuItem key={p}>
                 <NavigationMenuLink
                   className={`nav-item ${page === p ? 'active' : ''} ${navigationMenuTriggerStyle()}`}
@@ -123,9 +129,10 @@ function AppInner() {
           {page === 'dashboard' && <Dashboard />}
           {page === 'income' && <Incomes onDelete={() => toast('Удалено')} />}
           {page === 'expenses' && <Expenses onDelete={() => toast('Удалено')} />}
-          {page === 'mandatory' && <Mandatory onEdit={openMandatory} onDelete={() => toast('Удалено')} />}
-          {page === 'assets' && <Assets toast={toast} />}
-          {page === 'analytics' && <Analytics />}
+           {page === 'mandatory' && <Mandatory onEdit={openMandatory} onDelete={() => toast('Удалено')} />}
+           {page === 'assets' && <Assets toast={toast} />}
+           {page === 'debts' && <Debts onEdit={openDebt} onDelete={() => toast('Удалено')} />}
+           {page === 'analytics' && <Analytics />}
           {page === 'settings' && <Settings toast={toast} />}
         </div>
       </main>
@@ -140,6 +147,11 @@ function AppInner() {
         onSaved={() => reload('mandatory')}
         toast={toast} />
 
+      <DebtModal open={debtOpen} editing={debtEditing}
+        onClose={() => setDebtOpen(false)}
+        onSaved={() => reload('debts')}
+        toast={toast} />
+
       <ConfirmDialog open={!!confirm} text={confirm?.text}
         onConfirm={() => { confirm?.cb(); setConfirm(null); }}
         onCancel={() => setConfirm(null)} />
@@ -149,7 +161,7 @@ function AppInner() {
   );
 }
 
-const NAV_ICONS = { dashboard: '🏠', income: '📈', expenses: '📉', mandatory: '📅', assets: '💎', analytics: '📊', settings: '⚙️' };
+const NAV_ICONS = { dashboard: '🏠', income: '📈', expenses: '📉', mandatory: '📅', assets: '💎', debts: '🤝', analytics: '📊', settings: '⚙️' };
 
 function AuthScreen({ onAuth, onTelegram, toast }) {
   const [mode, setMode] = useState('login');

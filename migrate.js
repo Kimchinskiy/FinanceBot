@@ -95,6 +95,19 @@ const statements = [
     created_at    TEXT DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE INDEX IF NOT EXISTS idx_goals_user ON goals (user_id)`,
+
+  `CREATE TABLE IF NOT EXISTS debts (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL DEFAULT 'system',
+    person      TEXT NOT NULL,
+    amount      REAL NOT NULL,
+    note        TEXT DEFAULT '',
+    direction   TEXT DEFAULT 'i_owe',
+    status      TEXT DEFAULT 'pending',
+    due_date    TEXT,
+    created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_debts_user ON debts (user_id)`,
 ];
 
 // Новые колонки (добавляются идемпотентно). SQLite не поддерживает
