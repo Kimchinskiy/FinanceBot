@@ -167,6 +167,8 @@ body {
 .navigation-menu-viewport { display: none; }
 .navigation-menu-trigger { display: none; }
 .navigation-menu-content { display: contents; }
+/* Separate mobile tab bar is hidden on desktop */
+.mobile-tabbar { display: none; }
 
 /* Floating action button (mobile only) */
 .fab {
@@ -1008,22 +1010,25 @@ body {
   .navbar-actions #quick-add-btn { display: none; }
   .navbar-actions .btn-outline { padding: 7px 14px; }
 
-  /* ── Mobile: turn navbar-nav into a fixed bottom tab bar ── */
-  .navbar-nav {
+  /* ── Mobile: hide desktop nav inside top bar, show separate bottom tab bar ── */
+  .desktop-nav { display: none !important; }
+  .mobile-tabbar {
     position: fixed;
     left: 0; right: 0; bottom: 0;
     z-index: 200;
-    display: flex;
+    display: flex !important;
     gap: 0;
     width: 100%;
-    background: rgba(255,255,255,0.94);
+    background: rgba(255,255,255,0.96);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
     border-top: 1px solid var(--border);
     padding: 6px 2px calc(6px + env(safe-area-inset-bottom, 0px));
     overflow-x: auto;
+    scrollbar-width: none;
   }
-  .navbar-nav .nav-item {
+  .mobile-tabbar::-webkit-scrollbar { display: none; }
+  .mobile-tabbar .nav-item {
     flex: 1 1 0;
     min-width: 0;
     flex-direction: column;
@@ -1035,12 +1040,12 @@ body {
     background: none !important;
     color: var(--text-muted);
   }
-  .navbar-nav .nav-item.active {
+  .mobile-tabbar .nav-item.active {
     background: none !important;
     color: var(--accent);
     box-shadow: none;
   }
-  .navbar-nav .nav-item:hover { background: none; }
+  .mobile-tabbar .nav-item:hover { background: none; }
   .nav-ico { display: block; font-size: 22px; line-height: 1; }
   .nav-txt { font-size: 10px; font-weight: 500; letter-spacing: -0.02em; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 

@@ -95,7 +95,8 @@ function AppInner() {
           <div className="logo-icon">💰</div>
           <span className="logo-text">FinanceBot</span>
         </div>
-        <NavigationMenu className="navbar-nav">
+
+        <NavigationMenu className="navbar-nav desktop-nav">
           <NavigationMenuList>
             {NAV_ITEMS.map(p => (
               <NavigationMenuItem key={p.id}>
@@ -142,6 +143,21 @@ function AppInner() {
         onClose={() => setQuickOpen(false)}
         onSaved={() => { reload('incomes'); reload('expenses'); reload('accounts'); }}
         toast={toast} />
+
+      <NavigationMenu className="navbar-nav mobile-tabbar" aria-label="Навигация">
+        <NavigationMenuList>
+          {NAV_ITEMS.map(p => (
+            <NavigationMenuItem key={p.id}>
+              <NavigationMenuLink
+                className={`nav-item ${page === p.id ? 'active' : ''} ${navigationMenuTriggerStyle()}`}
+                onClick={(e) => { e.preventDefault(); navigate(p.id); }}
+              >
+                <span className="nav-ico">{NAV_ICONS[p.id]}</span><span className="nav-txt">{p.label}</span>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+          ))}
+        </NavigationMenuList>
+      </NavigationMenu>
 
       <MandatoryModal open={mandOpen} editing={mandEditing}
         onClose={() => setMandOpen(false)}
