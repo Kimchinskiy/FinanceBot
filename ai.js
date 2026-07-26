@@ -7,7 +7,7 @@
 const express = require('express');
 const router = express.Router();
 
-const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_APi || process.env.OPENROUTER_API;
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
 const APP_URL = process.env.APP_URL || 'https://maz.stormkhv.ru';
 
@@ -34,7 +34,7 @@ async function openRouterChat(messages, query, temperature = 0.7) {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENROUTER_KEY}`,
+        'Authorization': `Bearer ${key}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': APP_URL,
         'X-Title': 'FinanceBot',

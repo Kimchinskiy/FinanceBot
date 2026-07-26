@@ -511,10 +511,9 @@ app.get('/telegram_callback', (req, res) => {
 
   // Загружаем OpenRouter ключ из настроек, если есть
   try {
-    const r = await query("SELECT value FROM settings WHERE user_id='system' AND key='openrouter_key'");
-    if (r.rows[0]?.value && !process.env.OPENROUTER_API_KEY) {
+  const r = await query("SELECT value FROM settings WHERE user_id='system' AND key='openrouter_key'");
+    if (r.rows[0]?.value && !process.env.OPENROUTER_API_KEY && !process.env.OPENROUTER_APi) {
       process.env.OPENROUTER_API_KEY = JSON.parse(r.rows[0].value);
-      console.log('✅ OpenRouter key loaded from settings');
     }
   } catch {} // не критично
 

@@ -1146,6 +1146,10 @@ body {
   .nav-txt { font-size: 9px; }
 }
 
+@media (min-width: 901px) {
+  .nav-ico { display: none; }
+}
+
 /* ===== CREDIT CARDS ===== */
 .credit-cards-list {
   display: flex;
@@ -1290,7 +1294,7 @@ body {
 }
 .msg-align-end .bubble {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-primary);
   border-bottom-right-radius: 4px;
 }
 .bubble-content { }
