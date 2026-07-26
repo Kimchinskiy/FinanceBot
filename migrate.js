@@ -108,14 +108,42 @@ const statements = [
     created_at  TEXT DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE INDEX IF NOT EXISTS idx_debts_user ON debts (user_id)`,
+
+  `CREATE TABLE IF NOT EXISTS credit_cards (
+    id           TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL DEFAULT 'system',
+    name         TEXT NOT NULL,
+    limit_amount REAL NOT NULL,
+    balance      REAL NOT NULL DEFAULT 0,
+    closing_date INTEGER,
+    payment_date INTEGER,
+    created_at   TEXT DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_credit_cards_user ON credit_cards (user_id)`,
+
+  `CREATE TABLE IF NOT EXISTS credit_card_transactions (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL DEFAULT 'system',
+    card_id     TEXT NOT NULL,
+    type        TEXT NOT NULL CHECK(type IN ('purchase','payment')),
+    amount      REAL NOT NULL,
+    description TEXT DEFAULT '',
+    category    TEXT,
+    datetime    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_cct_card ON credit_card_transactions (card_id)`,
 ];
 
 // Новые колонки (добавляются идемпотентно). SQLite не поддерживает
 // ALTER TABLE ADD COLUMN IF NOT EXISTS, поэтому проверяем через PRAGMA.
 const columnMigrations = [
   // Источник средств (счёт) для доходов/расходов
-  { table: 'incomes',  column: 'source', def: `source TEXT NOT NULL DEFAULT 'Наличные'` },
-  { table: 'expenses', column: 'source', def: `source TEXT NOT NULL DEFAULT 'Наличные'` },
+  { table: 'incomes',  column: 'source', def: `source TEXT NOT NULL DEFAULT 'Карта'` },
+  { table: 'expenses', column: 'source', def: `source TEXT NOT NULL DEFAULT 'Карта'` },
+  // Источник для обязательных платежей и долгов
+  { table: 'mandatory_payments', column: 'source', def: `source TEXT NOT NULL DEFAULT 'Карта'` },
+  { table: 'debts', column: 'source', def: `source TEXT NOT NULL DEFAULT 'Карта'` },
   // Инвестиционные активы (крипта/акции/вклады)
   { table: 'accounts', column: 'symbol',           def: `symbol TEXT` },
   { table: 'accounts', column: 'quantity',         def: `quantity REAL` },

@@ -16,8 +16,20 @@ function rub(n) {
 }
 
 // Вызов OpenRouter chat completions. Возвращает текст или null при ошибке/отсутствии ключа.
-async function openRouterChat(messages, temperature = 0.7) {
-  if (!OPENROUTER_KEY) return null;
+async function getOpenRouterKey(query) {
+  if (OPENROUTER_KEY) return OPENROUTER_KEY;
+  try {
+    const r = await query("SELECT value FROM settings WHERE user_id='system' AND key='openrouter_key'");
+    const val = r.rows[0]?.value;
+    if (!val) return null;
+    const parsed = JSON.parse(val);
+    return typeof parsed === 'string' ? parsed : null;
+  } catch { return null; }
+}
+
+async function openRouterChat(messages, query, temperature = 0.7) {
+  const key = await getOpenRouterKey(query);
+  if (!key) return null;
   try {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -46,11 +58,12 @@ async function buildSummary(query, userId) {
     SELECT category, COALESCE(SUM(amount),0) AS total
     FROM ${table} WHERE user_id=? AND datetime >= ? GROUP BY category ORDER BY total DESC`;
 
-  const [inc, exp, mand, goals] = await Promise.all([
+  const [inc, exp, mand, goals, cards] = await Promise.all([
     query(groupSql('incomes'), [userId, threeAgo.toISOString()]),
     query(groupSql('expenses'), [userId, threeAgo.toISOString()]),
     query('SELECT name, amount, type, day, status FROM mandatory_payments WHERE user_id=?', [userId]),
     query('SELECT title, target_amount, current_amount, deadline FROM goals WHERE user_id=?', [userId]),
+    query('SELECT name, limit_amount, balance FROM credit_cards WHERE user_id=?', [userId]),
   ]);
 
   // Расходы текущего месяца vs среднего за 3 месяца по категориям
@@ -69,6 +82,9 @@ async function buildSummary(query, userId) {
     : '  (нет)') + '\n\n';
   summary += `Цели накопления:\n` + (goals.rows.length
     ? goals.rows.map(g => `  • ${g.title}: накоплено ${rub(g.current_amount)} из ${rub(g.target_amount)}${g.deadline ? ' до ' + g.deadline : ''}`).join('\n')
+    : '  (нет)');
+  summary += `\n\nКредитные карты:\n` + (cards.rows.length
+    ? cards.rows.map(c => `  • ${c.name}: задолженность ${rub(c.balance)} из лимита ${rub(c.limit_amount)}, доступно ${rub(Math.max(0, c.limit_amount - c.balance))}`).join('\n')
     : '  (нет)');
   return summary;
 }
@@ -121,10 +137,22 @@ router.post('/advice', async (req, res) => {
   const { query } = req.app.locals.db;
   try {
     const summary = await buildSummary(query, req.userId);
+    const systemAdvicePrompt = `Ты — персональный финансовый AI-ассистент FinanceBot.
+
+Твоя задача — давать 3-5 конкретных, практичных и персонализированных советов на основе финансовой сводки пользователя.
+
+Правила:
+- Пиши на русском, дружелюбно, кратко, без лишней воды
+- Каждый совет с новой строки, без нумерации и заголовков
+- Не выдумывай цифры, которых нет в сводке
+- Анализируй: где можно сократить расходы, как оптимизировать долги и кредитку, что сделать для достижения целей
+- Если у пользователя есть кредитная карта — рекомендую как ей управлять (не превышать лимит, вовремя гасить)
+- Если есть свободные средства — предложи варианты: накопление, досрочное погашение долгов, инвестиции`;
+
     const aiText = await openRouterChat([
-      { role: 'system', content: 'Ты — финансовый ассистент. Дай 3-5 конкретных, дружелюбных и практичных совета по управлению личными финансами на основе сводки. Каждый совет с новой строки, без нумерации и без заголовков. Пиши на русском, кратко.' },
-      { role: 'user', content: summary },
-    ]);
+      { role: 'system', content: systemAdvicePrompt },
+      { role: 'user', content: 'Вот моя финансовая сводка:\n\n' + summary },
+    ], query);
     if (aiText) {
       const tips = aiText.split('\n').map(s => s.replace(/^[-•]\s*/, '').trim()).filter(Boolean);
       return res.json({ tips, source: 'ai' });
@@ -143,8 +171,25 @@ router.post('/chat', async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Пустое сообщение' });
   try {
     const summary = await buildSummary(query, req.userId);
+    const systemChatPrompt = `Ты — персональный финансовый AI-помощник в приложении FinanceBot.
+
+Твоя роль:
+- Анализировать финансы пользователя на основе его данных: доходы, расходы, обязательные платежи, долги, кредитные карты, цели накопления
+- Отвечать на вопросы о финансах, давать конкретные рекомендации
+- Помогать принимать решения: может ли пользователь позволить себе покупку, сколько можно отложить, как сократить расходы
+
+Правила:
+- Отвечай на русском, дружелюбно, по делу
+- НЕ выдумывай точные цифры — используй ТОЛЬКО те, что есть в сводке ниже. Если данных для ответа недостаточно — честно скажи об этом
+- Если пользователь спрашивает "могу ли я купить X за N рублей" — проанализируй: остаток после обязательных расходов, текущий баланс счетов, долги по кредитке, и дай обоснованный ответ
+- Не давай инвестиционных советов (покупать/продавать конкретные активы)
+- Будь кратким, но содержательным
+
+Сводка финансов пользователя:
+${summary}`;
+
     const messages = [
-      { role: 'system', content: 'Ты — персональный финансовый помощник в приложении FinanceBot. Отвечай на русском, дружелюбно и по делу. Учитывай финансовую сводку пользователя, но не выдумывай точные цифры, которых нет в сводке. Помогай сокращать расходы, копить и гасить долги.\n\nСводка пользователя:\n' + summary },
+      { role: 'system', content: systemChatPrompt },
     ];
     if (Array.isArray(history)) {
       history.slice(-10).forEach(h => {
@@ -153,7 +198,7 @@ router.post('/chat', async (req, res) => {
     }
     messages.push({ role: 'user', content: message });
 
-    const reply = await openRouterChat(messages, 0.8);
+    const reply = await openRouterChat(messages, query, 0.8);
     if (reply) return res.json({ reply, source: 'ai' });
 
     // Fallback-ответ без LLM

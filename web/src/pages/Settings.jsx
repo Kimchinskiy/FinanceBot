@@ -153,6 +153,33 @@ export default function Settings({ toast }) {
       </div>
 
       <div className="panel">
+        <div className="panel-header"><span>🧠 AI-помощник (OpenRouter)</span></div>
+        <div className="settings-form">
+          <p className="text-muted">Ключ API для OpenRouter. Если не задан — AI отвечает в базовом режиме.</p>
+          <div className="add-category-row">
+            <input type="password" className="input-field" id="or-key-input" placeholder="sk-or-v1-..." onKeyDown={async (e) => {
+              if (e.key === 'Enter') {
+                const val = e.target.value.trim();
+                if (val) {
+                  try { await api('PUT', '/settings/openrouter_key', { value: val }); toast('Ключ сохранён!'); e.target.value = ''; }
+                  catch { toast('Ошибка', '#ff3b30'); }
+                }
+              }
+            }} />
+            <button className="btn-outline" onClick={async () => {
+              const el = document.getElementById('or-key-input');
+              const val = el?.value?.trim();
+              if (val) {
+                try { await api('PUT', '/settings/openrouter_key', { value: val }); toast('Ключ сохранён!'); el.value = ''; }
+                catch { toast('Ошибка', '#ff3b30'); }
+              }
+            }}>Сохранить</button>
+          </div>
+          <p className="text-muted" style={{ fontSize: 11, marginTop: 4 }}>Получить ключ: <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">openrouter.ai/keys</a>. Введите и нажмите Enter или кнопку.</p>
+        </div>
+      </div>
+
+      <div className="panel">
         <div className="panel-header"><span>💬 Telegram</span></div>
         <div className="settings-form">
           <p className="text-muted">

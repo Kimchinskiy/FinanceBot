@@ -14,7 +14,7 @@ export function fmtDate(dt) {
   return new Date(dt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 export function fmtDateTime(dt) {
-  return new Date(dt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Date(dt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 export function now() {

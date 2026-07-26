@@ -3,43 +3,65 @@ import { useStore } from '../store.jsx';
 import { api } from '../api.js';
 import { now } from '../utils.js';
 
-export default function QuickAddModal({ open, type, onClose, onSaved, toast }) {
+export default function QuickAddModal({ open, type, editing, onClose, onSaved, toast }) {
   const { state } = useStore();
   const [modalType, setModalType] = useState(type || 'expense');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
-  const [source, setSource] = useState('Наличные');
+  const [source, setSource] = useState('Карта');
   const [desc, setDesc] = useState('');
   const [date, setDate] = useState(now());
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setModalType(type || 'expense');
-      setAmount('');
-      setDesc('');
-      setDate(now());
-      setSource('Наличные');
-      const cats = (type || 'expense') === 'income' ? state.incomeCategories : state.expenseCategories;
-      setCategory(cats[0] || '');
+      if (editing) {
+        setModalType(editing.kind);
+        setAmount(String(editing.amount));
+        setCategory(editing.category || '');
+        setSource(editing.source || 'Карта');
+        setDesc(editing.description || '');
+        setDate(editing.datetime ? editing.datetime.slice(0, 16) : now());
+      } else {
+        setModalType(type || 'expense');
+        setAmount('');
+        setDesc('');
+        setDate(now());
+        setSource('Карта');
+        const cats = (type || 'expense') === 'income' ? state.incomeCategories : state.expenseCategories;
+        setCategory(cats[0] || '');
+      }
     }
-  }, [open, type, state.incomeCategories, state.expenseCategories]);
+  }, [open, type, editing, state.incomeCategories, state.expenseCategories]);
 
   const cats = modalType === 'income' ? state.incomeCategories : state.expenseCategories;
+  const isEdit = !!editing;
 
   const save = async () => {
+    if (saving) return;
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) { toast('Введите сумму', '#ff3b30'); return; }
+    setSaving(true);
     try {
-      if (modalType === 'income') {
-        await api('POST', '/incomes', { amount: amt, category, description: desc, datetime: date, source });
+      const body = { amount: amt, category, description: desc, datetime: date, source };
+      if (isEdit) {
+        const path = modalType === 'income' ? `/incomes/${editing.id}` : `/expenses/${editing.id}`;
+        await api('PUT', path, body);
+        toast(`${modalType === 'income' ? 'Доход' : 'Расход'} изменён!`);
       } else {
-        await api('POST', '/expenses', { amount: amt, category, description: desc, datetime: date, source });
+        if (modalType === 'income') {
+          await api('POST', '/incomes', body);
+        } else {
+          await api('POST', '/expenses', body);
+        }
+        toast(`${modalType === 'income' ? 'Доход' : 'Расход'} добавлен!`);
       }
       onSaved();
       onClose();
-      toast(`${modalType === 'income' ? 'Доход' : 'Расход'} добавлен!`);
     } catch (e) {
       toast('Ошибка сохранения', '#ff3b30');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -49,7 +71,7 @@ export default function QuickAddModal({ open, type, onClose, onSaved, toast }) {
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal">
         <div className="modal-header">
-          <h2>Добавить операцию</h2>
+          <h2>{isEdit ? 'Изменить операцию' : 'Добавить операцию'}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
@@ -69,7 +91,7 @@ export default function QuickAddModal({ open, type, onClose, onSaved, toast }) {
           </div>
           <div className="form-group">
             <label>Счёт (откуда/куда)</label>
-            <div className="source-toggle" role="tablist">
+              <div className={`source-toggle ${source === 'Карта' ? 'is-card' : ''}`} role="tablist">
               <button type="button" className={`source-opt ${source === 'Наличные' ? 'active' : ''}`} onClick={() => setSource('Наличные')}>💵 Наличные</button>
               <button type="button" className={`source-opt ${source === 'Карта' ? 'active' : ''}`} onClick={() => setSource('Карта')}>💳 Безнал</button>
               <span className="source-thumb" aria-hidden="true"></span>
@@ -86,7 +108,7 @@ export default function QuickAddModal({ open, type, onClose, onSaved, toast }) {
         </div>
         <div className="modal-footer">
           <button className="btn-outline" onClick={onClose}>Отмена</button>
-          <button className="btn-primary" onClick={save}>Сохранить</button>
+          <button className="btn-primary" onClick={save} disabled={saving}>{saving ? 'Сохранение…' : (isEdit ? 'Сохранить' : 'Сохранить')}</button>
         </div>
       </div>
     </div>

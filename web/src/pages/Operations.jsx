@@ -7,7 +7,7 @@ function populateMonths(data) {
   return [...new Set(data.map(d => d.datetime.slice(0, 7)))].sort().reverse();
 }
 
-export default function Operations({ toast, onDelete }) {
+export default function Operations({ toast, onEdit, onDelete }) {
   const { state, reload } = useStore();
   const [tab, setTab] = useState('all'); // all | income | expense
   const [month, setMonth] = useState('');
@@ -108,7 +108,12 @@ export default function Operations({ toast, onDelete }) {
                   <td data-label="Сумма" className={item.kind === 'income' ? 'amount-income' : 'amount-expense'}>
                     {item.kind === 'income' ? '+' : '−'}{fmt(item.amount)}
                   </td>
-                  <td data-label=""><button className="action-btn" onClick={() => handleDelete(item)} title="Удалить">🗑</button></td>
+                  <td data-label="">
+                    <span className="action-group">
+                      <button className="action-btn" onClick={() => onEdit(item)} title="Изменить">✎</button>
+                      <button className="action-btn" onClick={() => handleDelete(item)} title="Удалить">🗑</button>
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

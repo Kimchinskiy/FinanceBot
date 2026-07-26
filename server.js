@@ -9,6 +9,7 @@ const { router: authRouter, authRequired, upsertUserByTg, signToken } = require(
 const accountsRouter = require('./accounts');
 const goalsRouter = require('./goals');
 const aiRouter = require('./ai');
+const creditCardsRouter = require('./creditCards');
 const { router: quotesRouter } = require('./quotes');
 const { runMigration } = require('./migrate');
 
@@ -74,11 +75,15 @@ app.put('/api/settings/:key', authRequired, async (req, res) => {
   try {
     const { key } = req.params;
     const { value } = req.body;
+    const uid = key === 'openrouter_key' ? 'system' : req.userId;
     await query(
       `INSERT OR REPLACE INTO settings (user_id, key, value, updated_at)
        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
-      [req.userId, key, JSON.stringify(value)]
+      [uid, key, JSON.stringify(value)]
     );
+    if (key === 'openrouter_key') {
+      process.env.OPENROUTER_API_KEY = String(value);
+    }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -106,7 +111,7 @@ app.get('/api/incomes', authRequired, async (req, res) => {
 app.post('/api/incomes', authRequired, async (req, res) => {
   try {
     const { amount, category, description, datetime, source } = req.body;
-    const src = source || 'Наличные';
+    const src = source || 'Карта';
     const id = uid();
     await query(
       'INSERT INTO incomes (id, user_id, amount, category, description, datetime, source) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -126,11 +131,50 @@ app.post('/api/incomes', authRequired, async (req, res) => {
   }
 });
 
+app.put('/api/incomes/:id', authRequired, async (req, res) => {
+  try {
+    const old = await query('SELECT * FROM incomes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+    if (!old.rows[0]) return res.status(404).json({ error: 'Не найдено' });
+    const oldRow = old.rows[0];
+    const { amount, category, description, datetime, source } = req.body;
+    const src = source || 'Карта';
+    const amt = Number(amount);
+
+    await query(
+      `UPDATE incomes SET amount = ?, category = ?, description = ?, datetime = ?, source = ?
+       WHERE id = ? AND user_id = ?`,
+      [amt, category, description || '', datetime || oldRow.datetime, src, req.params.id, req.userId]
+    );
+
+    // Пересчитываем баланс: возвращаем старую сумму, списываем новую
+    if (Number(oldRow.amount) !== amt || (oldRow.source || 'Карта') !== src) {
+      const oldSrc = oldRow.source || 'Карта';
+      await query(
+        `UPDATE accounts SET balance = balance - ? WHERE id = (
+           SELECT id FROM accounts WHERE user_id = ?
+           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+         )`,
+        [Number(oldRow.amount), req.userId, oldSrc]
+      );
+      await query(
+        `UPDATE accounts SET balance = balance + ? WHERE id = (
+           SELECT id FROM accounts WHERE user_id = ?
+           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+         )`,
+        [amt, req.userId, src]
+      );
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/incomes/:id', authRequired, async (req, res) => {
   try {
     const r = await query('SELECT amount, source FROM incomes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
     if (r.rows[0]) {
-      const src = r.rows[0].source || 'Наличные';
+      const src = r.rows[0].source || 'Карта';
       await query(
         `UPDATE accounts SET balance = balance - ? WHERE id = (
            SELECT id FROM accounts WHERE user_id = ?
@@ -167,7 +211,7 @@ app.get('/api/expenses', authRequired, async (req, res) => {
 app.post('/api/expenses', authRequired, async (req, res) => {
   try {
     const { amount, category, description, datetime, source } = req.body;
-    const src = source || 'Наличные';
+    const src = source || 'Карта';
     const id = uid();
     await query(
       'INSERT INTO expenses (id, user_id, amount, category, description, datetime, source) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -187,11 +231,50 @@ app.post('/api/expenses', authRequired, async (req, res) => {
   }
 });
 
+app.put('/api/expenses/:id', authRequired, async (req, res) => {
+  try {
+    const old = await query('SELECT * FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+    if (!old.rows[0]) return res.status(404).json({ error: 'Не найдено' });
+    const oldRow = old.rows[0];
+    const { amount, category, description, datetime, source } = req.body;
+    const src = source || 'Карта';
+    const amt = Number(amount);
+
+    await query(
+      `UPDATE expenses SET amount = ?, category = ?, description = ?, datetime = ?, source = ?
+       WHERE id = ? AND user_id = ?`,
+      [amt, category, description || '', datetime || oldRow.datetime, src, req.params.id, req.userId]
+    );
+
+    // Пересчитываем баланс: возвращаем старую сумму, добавляем новую
+    if (Number(oldRow.amount) !== amt || (oldRow.source || 'Карта') !== src) {
+      const oldSrc = oldRow.source || 'Карта';
+      await query(
+        `UPDATE accounts SET balance = balance + ? WHERE id = (
+           SELECT id FROM accounts WHERE user_id = ?
+           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+         )`,
+        [Number(oldRow.amount), req.userId, oldSrc]
+      );
+      await query(
+        `UPDATE accounts SET balance = balance - ? WHERE id = (
+           SELECT id FROM accounts WHERE user_id = ?
+           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+         )`,
+        [amt, req.userId, src]
+      );
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/expenses/:id', authRequired, async (req, res) => {
   try {
     const r = await query('SELECT amount, source FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
     if (r.rows[0]) {
-      const src = r.rows[0].source || 'Наличные';
+      const src = r.rows[0].source || 'Карта';
       await query(
         `UPDATE accounts SET balance = balance + ? WHERE id = (
            SELECT id FROM accounts WHERE user_id = ?
@@ -219,11 +302,12 @@ app.get('/api/mandatory', authRequired, async (req, res) => {
 
 app.post('/api/mandatory', authRequired, async (req, res) => {
   try {
-    const { name, amount, category, day, type, status } = req.body;
+    const { name, amount, category, day, type, status, source } = req.body;
+    const src = source || 'Карта';
     const id = uid();
     await query(
-      'INSERT INTO mandatory_payments (id, user_id, name, amount, category, day, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, req.userId, name, amount, category, day || null, type || 'monthly', status || 'pending']
+      'INSERT INTO mandatory_payments (id, user_id, name, amount, category, day, type, status, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, req.userId, name, amount, category, day || null, type || 'monthly', status || 'pending', src]
     );
     res.json({ id });
   } catch (err) {
@@ -233,11 +317,12 @@ app.post('/api/mandatory', authRequired, async (req, res) => {
 
 app.put('/api/mandatory/:id', authRequired, async (req, res) => {
   try {
-    const { name, amount, category, day, type, status } = req.body;
+    const { name, amount, category, day, type, status, source } = req.body;
+    const src = source || 'Карта';
     await query(
-      `UPDATE mandatory_payments SET name = ?, amount = ?, category = ?, day = ?, type = ?, status = ?
+      `UPDATE mandatory_payments SET name = ?, amount = ?, category = ?, day = ?, type = ?, status = ?, source = ?
        WHERE id = ? AND user_id = ?`,
-      [name, amount, category, day, type, status, req.params.id, req.userId]
+      [name, amount, category, day || null, type, status, src, req.params.id, req.userId]
     );
     res.json({ ok: true });
   } catch (err) {
@@ -256,11 +341,35 @@ app.delete('/api/mandatory/:id', authRequired, async (req, res) => {
 
 app.patch('/api/mandatory/:id/toggle', authRequired, async (req, res) => {
   try {
+    const row = await query('SELECT amount, status, source FROM mandatory_payments WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+    if (!row.rows[0]) return res.status(404).json({ error: 'Не найдено' });
+    const wasPaid = row.rows[0].status === 'paid';
+    const src = row.rows[0].source || 'Карта';
+
     await query(
       `UPDATE mandatory_payments SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END
        WHERE id = ? AND user_id = ?`,
       [req.params.id, req.userId]
     );
+
+    const amt = Number(row.rows[0].amount);
+    if (wasPaid) {
+      await query(
+        `UPDATE accounts SET balance = balance + ? WHERE id = (
+           SELECT id FROM accounts WHERE user_id = ?
+           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+         )`,
+        [amt, req.userId, src]
+      );
+    } else {
+      await query(
+        `UPDATE accounts SET balance = balance - ? WHERE id = (
+           SELECT id FROM accounts WHERE user_id = ?
+           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+         )`,
+        [amt, req.userId, src]
+      );
+    }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -279,11 +388,12 @@ app.get('/api/debts', authRequired, async (req, res) => {
 
 app.post('/api/debts', authRequired, async (req, res) => {
   try {
-    const { person, amount, note, direction, status, due_date } = req.body;
+    const { person, amount, note, direction, status, due_date, source } = req.body;
+    const src = source || 'Карта';
     const id = uid();
     await query(
-      'INSERT INTO debts (id, user_id, person, amount, note, direction, status, due_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, req.userId, person, amount, note || '', direction || 'i_owe', status || 'pending', due_date || null]
+      'INSERT INTO debts (id, user_id, person, amount, note, direction, status, due_date, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, req.userId, person, amount, note || '', direction || 'i_owe', status || 'pending', due_date || null, src]
     );
     res.json({ id });
   } catch (err) {
@@ -293,11 +403,12 @@ app.post('/api/debts', authRequired, async (req, res) => {
 
 app.put('/api/debts/:id', authRequired, async (req, res) => {
   try {
-    const { person, amount, note, direction, status, due_date } = req.body;
+    const { person, amount, note, direction, status, due_date, source } = req.body;
+    const src = source || 'Карта';
     await query(
-      `UPDATE debts SET person = ?, amount = ?, note = ?, direction = ?, status = ?, due_date = ?
+      `UPDATE debts SET person = ?, amount = ?, note = ?, direction = ?, status = ?, due_date = ?, source = ?
        WHERE id = ? AND user_id = ?`,
-      [person, amount, note, direction, status, due_date, req.params.id, req.userId]
+      [person, amount, note || '', direction, status, due_date || null, src, req.params.id, req.userId]
     );
     res.json({ ok: true });
   } catch (err) {
@@ -316,22 +427,52 @@ app.delete('/api/debts/:id', authRequired, async (req, res) => {
 
 app.patch('/api/debts/:id/toggle', authRequired, async (req, res) => {
   try {
+    const row = await query('SELECT amount, status, direction, source FROM debts WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+    if (!row.rows[0]) return res.status(404).json({ error: 'Не найдено' });
+    const wasPaid = row.rows[0].status === 'paid';
+    const direction = row.rows[0].direction;
+    const src = row.rows[0].source || 'Карта';
+
     await query(
       `UPDATE debts SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END
        WHERE id = ? AND user_id = ?`,
       [req.params.id, req.userId]
     );
+
+    const amt = Number(row.rows[0].amount);
+    if (direction === 'i_owe') {
+      if (wasPaid) {
+        // Возврат отметки → деньги возвращаются на счёт
+        await query(
+          `UPDATE accounts SET balance = balance + ? WHERE id = (
+             SELECT id FROM accounts WHERE user_id = ?
+             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+           )`,
+          [amt, req.userId, src]
+        );
+      } else {
+        // Отмечаем оплаченным → списываем со счёта
+        await query(
+          `UPDATE accounts SET balance = balance - ? WHERE id = (
+             SELECT id FROM accounts WHERE user_id = ?
+             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+           )`,
+          [amt, req.userId, src]
+        );
+      }
+    }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-/* ──────────────────── ACCOUNTS / GOALS / AI (per-user) ──────────────────── */
+/* ──────────────────── ACCOUNTS / GOALS / AI / CREDIT CARDS (per-user) ──────────────────── */
 app.use('/api/accounts', authRequired, accountsRouter);
 app.use('/api/goals', authRequired, goalsRouter);
 app.use('/api/ai', authRequired, aiRouter);
 app.use('/api/quotes', authRequired, quotesRouter);
+app.use('/api/credit-cards', authRequired, creditCardsRouter);
 
 /* ──────────────────── SPA FALLBACK (React) ──────────────────── */
 // Все не-API GET-запросы отдаём index.html собранного фронта
@@ -367,6 +508,15 @@ app.get('/telegram_callback', (req, res) => {
 
   const bot = createBot(process.env.BOT_TOKEN, APP_URL, { query });
   if (bot) launchBot();
+
+  // Загружаем OpenRouter ключ из настроек, если есть
+  try {
+    const r = await query("SELECT value FROM settings WHERE user_id='system' AND key='openrouter_key'");
+    if (r.rows[0]?.value && !process.env.OPENROUTER_API_KEY) {
+      process.env.OPENROUTER_API_KEY = JSON.parse(r.rows[0].value);
+      console.log('✅ OpenRouter key loaded from settings');
+    }
+  } catch {} // не критично
 
   app.listen(PORT, () => {
     console.log(`📊 FinanceBot API running at http://localhost:${PORT}`);

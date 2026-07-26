@@ -14,6 +14,8 @@ import Assets from './pages/Assets.jsx';
 import Debts from './pages/Debts.jsx';
 import Analytics from './pages/Analytics.jsx';
 import Settings from './pages/Settings.jsx';
+import CreditCards from './pages/CreditCards.jsx';
+import ChatAI from './pages/ChatAI.jsx';
 import TelegramLoginButton from './components/TelegramLoginButton.jsx';
 import {
   NavigationMenu,
@@ -25,7 +27,7 @@ import {
 
 const TITLES = {
   dashboard: 'Обзор', operations: 'Операции',
-  mandatory: 'Обязательные платежи', assets: 'Активы', debts: 'Долги', analytics: 'Аналитика', settings: 'Настройки'
+  mandatory: 'Обязательные платежи', creditcards: 'Кредитки', assets: 'Активы', debts: 'Долги', analytics: 'Аналитика', chat: 'AI-помощник', settings: 'Настройки'
 };
 
 function AppInner() {
@@ -34,6 +36,7 @@ function AppInner() {
   const [page, setPage] = useState('dashboard');
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickType, setQuickType] = useState('expense');
+  const [quickEdit, setQuickEdit] = useState(null);
   const [mandOpen, setMandOpen] = useState(false);
   const [mandEditing, setMandEditing] = useState(null);
   const [debtOpen, setDebtOpen] = useState(false);
@@ -42,7 +45,8 @@ function AppInner() {
 
   const toast = show;
 
-  const openQuickAdd = (type) => { setQuickType(type); setQuickOpen(true); };
+  const openQuickAdd = (type) => { setQuickType(type); setQuickEdit(null); setQuickOpen(true); };
+  const openQuickEdit = (item) => { setQuickEdit(item); setQuickOpen(true); };
   const openMandatory = (m) => { setMandEditing(m || null); setMandOpen(true); };
   const openDebt = (d) => { setDebtEditing(d || null); setDebtOpen(true); };
 
@@ -127,16 +131,18 @@ function AppInner() {
 
         <div className="page active" key={page}>
           {page === 'dashboard' && <Dashboard />}
-          {page === 'operations' && <Operations toast={toast} onDelete={() => toast('Удалено')} />}
+          {page === 'operations' && <Operations toast={toast} onEdit={openQuickEdit} onDelete={() => toast('Удалено')} />}
            {page === 'mandatory' && <Mandatory onEdit={openMandatory} onDelete={() => toast('Удалено')} />}
+           {page === 'creditcards' && <CreditCards toast={toast} />}
            {page === 'assets' && <Assets toast={toast} />}
            {page === 'debts' && <Debts onEdit={openDebt} onDelete={() => toast('Удалено')} />}
-           {page === 'analytics' && <Analytics />}
-          {page === 'settings' && <Settings toast={toast} />}
+          {page === 'analytics' && <Analytics />}
+          {page === 'chat' && <ChatAI toast={toast} />}
+           {page === 'settings' && <Settings toast={toast} />}
         </div>
       </main>
 
-      <QuickAddModal open={quickOpen} type={quickType}
+      <QuickAddModal open={quickOpen} type={quickType} editing={quickEdit}
         onClose={() => setQuickOpen(false)}
         onSaved={() => { reload('incomes'); reload('expenses'); reload('accounts'); }}
         toast={toast} />
@@ -175,16 +181,18 @@ function AppInner() {
   );
 }
 
-const NAV_ICONS = { dashboard: '🏠', income: '📈', expenses: '📉', operations: '💱', mandatory: '📅', assets: '💎', debts: '🤝', analytics: '📊', settings: '⚙️' };
+const NAV_ICONS = { dashboard: '🏠', income: '📈', expenses: '📉', operations: '💱', mandatory: '📅', creditcards: '💳', assets: '💎', debts: '🤝', analytics: '📊', chat: '🧠', settings: '⚙️' };
 
-// Плоский порядок пунктов меню (7 пунктов — чтобы не перегружать UI)
+// Плоский порядок пунктов меню
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Обзор' },
   { id: 'operations', label: 'Операции' },
   { id: 'debts', label: 'Долги' },
   { id: 'mandatory', label: 'Платежи' },
+  { id: 'creditcards', label: 'Кредитки' },
   { id: 'assets', label: 'Активы' },
   { id: 'analytics', label: 'Аналитика' },
+  { id: 'chat', label: 'AI' },
   { id: 'settings', label: 'Ещё' },
 ];
 
