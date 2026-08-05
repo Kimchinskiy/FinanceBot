@@ -1021,7 +1021,8 @@ body {
   transition: transform var(--trans);
   z-index: 0;
 }
-.source-toggle.is-card .source-thumb { transform: translateX(100%); }
+.source-toggle.is-card .source-thumb,
+.source-toggle.is-second .source-thumb { transform: translateX(100%); }
 .source-opt {
   position: relative;
   z-index: 1;

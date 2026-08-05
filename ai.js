@@ -1,6 +1,7 @@
 // ===================================================================
-// FinanceBot — ai.js  (AI-рекомендации и чат через OpenRouter)
-// Ключ OPENROUTER_API_KEY хранится ТОЛЬКО на сервере.
+// FinanceBot — ai.js  (AI-рекомендации и чат через OpenRouter или Gemini)
+// Ключи API хранятся ТОЛЬКО на сервере (в settings под user_id='system' —
+// общий инстанс-ключ, не привязан к конкретному пользователю).
 // Если ключ не задан или LLM недоступен — deterministic rule-based фолбэк.
 // В LLM уходят ТОЛЬКО агрегированные/анонимные суммы и категории (без ФИО/PII).
 // ===================================================================
@@ -8,29 +9,55 @@ const express = require('express');
 const router = express.Router();
 const { nowVladivostok } = require('./timezone');
 
-const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_APi || process.env.OPENROUTER_API;
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+const OPENROUTER_ENV_KEY = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_APi || process.env.OPENROUTER_API;
+const OPENROUTER_ENV_MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+const GEMINI_ENV_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_ENV_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 const APP_URL = process.env.APP_URL || 'https://maz.stormkhv.ru';
 
 function rub(n) {
   return (Number(n) || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' ₽';
 }
 
-// Вызов OpenRouter chat completions. Возвращает текст или null при ошибке/отсутствии ключа.
-async function getOpenRouterKey(query) {
-  if (OPENROUTER_KEY) return OPENROUTER_KEY;
+// Читает общесистемную (user_id='system') настройку из settings, JSON-декодируя значение.
+async function getSystemSetting(query, key) {
   try {
-    const r = await query("SELECT value FROM settings WHERE user_id='system' AND key='openrouter_key'");
+    const r = await query("SELECT value FROM settings WHERE user_id='system' AND key=?", [key]);
     const val = r.rows[0]?.value;
-    if (!val) return null;
-    const parsed = JSON.parse(val);
-    return typeof parsed === 'string' ? parsed : null;
+    if (val === undefined || val === null) return null;
+    return JSON.parse(val);
   } catch { return null; }
 }
 
+async function getProvider(query) {
+  const p = await getSystemSetting(query, 'ai_provider');
+  return p === 'gemini' ? 'gemini' : 'openrouter';
+}
+
+async function getOpenRouterKey(query) {
+  if (OPENROUTER_ENV_KEY) return OPENROUTER_ENV_KEY;
+  const v = await getSystemSetting(query, 'openrouter_key');
+  return typeof v === 'string' && v ? v : null;
+}
+
+async function getGeminiKey(query) {
+  if (GEMINI_ENV_KEY) return GEMINI_ENV_KEY;
+  const v = await getSystemSetting(query, 'gemini_key');
+  return typeof v === 'string' && v ? v : null;
+}
+
+async function getModel(query, provider) {
+  const key = provider === 'gemini' ? 'gemini_model' : 'openrouter_model';
+  const v = await getSystemSetting(query, key);
+  if (typeof v === 'string' && v) return v;
+  return provider === 'gemini' ? GEMINI_ENV_MODEL : OPENROUTER_ENV_MODEL;
+}
+
+// Вызов OpenRouter chat completions. Возвращает текст или null при ошибке/отсутствии ключа.
 async function openRouterChat(messages, query, temperature = 0.7) {
   const key = await getOpenRouterKey(query);
   if (!key) return null;
+  const model = await getModel(query, 'openrouter');
   try {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -40,7 +67,7 @@ async function openRouterChat(messages, query, temperature = 0.7) {
         'HTTP-Referer': APP_URL,
         'X-Title': 'FinanceBot',
       },
-      body: JSON.stringify({ model: OPENROUTER_MODEL, messages, temperature, max_tokens: 700 }),
+      body: JSON.stringify({ model, messages, temperature, max_tokens: 700 }),
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -48,6 +75,44 @@ async function openRouterChat(messages, query, temperature = 0.7) {
   } catch (e) {
     return null;
   }
+}
+
+// Вызов Gemini generateContent. Переводит OpenAI-подобные messages (system/user/assistant)
+// в формат Gemini (systemInstruction + contents с ролями user/model).
+async function geminiChat(messages, query, temperature = 0.7) {
+  const key = await getGeminiKey(query);
+  if (!key) return null;
+  const model = await getModel(query, 'gemini');
+  const systemText = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+  const contents = messages
+    .filter(m => m.role !== 'system')
+    .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
+          contents,
+          generationConfig: { temperature, maxOutputTokens: 700 },
+        }),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const parts = data?.candidates?.[0]?.content?.parts;
+    return Array.isArray(parts) ? parts.map(p => p.text || '').join('').trim() || null : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Единая точка входа: выбирает провайдера (OpenRouter/Gemini) по настройке ai_provider.
+async function llmChat(messages, query, temperature = 0.7) {
+  const provider = await getProvider(query);
+  return provider === 'gemini' ? geminiChat(messages, query, temperature) : openRouterChat(messages, query, temperature);
 }
 
 // Анонимизированная сводка пользователя за последние 3 месяца
@@ -141,6 +206,29 @@ async function ruleBasedAdvice(query, userId) {
   return tips.slice(0, 5);
 }
 
+// GET /api/ai/config — текущий провайдер/модели и наличие ключей (сами ключи не отдаются)
+router.get('/config', async (req, res) => {
+  const { query } = req.app.locals.db;
+  try {
+    const [provider, openrouterModel, geminiModel, orKey, gmKey] = await Promise.all([
+      getProvider(query),
+      getModel(query, 'openrouter'),
+      getModel(query, 'gemini'),
+      getOpenRouterKey(query),
+      getGeminiKey(query),
+    ]);
+    res.json({
+      provider,
+      openrouterModel,
+      geminiModel,
+      hasOpenrouterKey: !!orKey,
+      hasGeminiKey: !!gmKey,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/ai/advice — еженедельный/месячный дайджест из 3+ советов
 router.post('/advice', async (req, res) => {
   const { query } = req.app.locals.db;
@@ -160,7 +248,7 @@ router.post('/advice', async (req, res) => {
 - Учитывай реальные балансы счетов и долги (кто кому должен) из сводки при советах о свободных средствах
 - Если есть свободные средства — предложи варианты: накопление, досрочное погашение долгов, инвестиции`;
 
-    const aiText = await openRouterChat([
+    const aiText = await llmChat([
       { role: 'system', content: systemAdvicePrompt },
       { role: 'user', content: 'Вот моя финансовая сводка:\n\n' + summary },
     ], query);
@@ -210,7 +298,7 @@ ${summary}`;
     }
     messages.push({ role: 'user', content: message });
 
-    const reply = await openRouterChat(messages, query, 0.8);
+    const reply = await llmChat(messages, query, 0.8);
     if (reply) return res.json({ reply, source: 'ai' });
 
     // Fallback-ответ без LLM

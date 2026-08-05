@@ -1,8 +1,23 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../store.jsx';
 import { api, apiDownload } from '../api.js';
 import { findAccountByName, fmt, DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS } from '../utils.js';
 import TelegramLoginButton from '../components/TelegramLoginButton.jsx';
+
+const OPENROUTER_MODEL_PRESETS = [
+  'openai/gpt-4o-mini',
+  'openai/gpt-4o',
+  'anthropic/claude-3.5-sonnet',
+  'google/gemini-2.0-flash-exp:free',
+  'meta-llama/llama-3.1-70b-instruct',
+  'deepseek/deepseek-chat',
+];
+const GEMINI_MODEL_PRESETS = [
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro',
+];
 
 export default function Settings({ toast }) {
   const { state, update, reload, setQuotesConfig, user, linkTelegram, logout } = useStore();
@@ -13,6 +28,45 @@ export default function Settings({ toast }) {
   const [salaryPeriod, setSalaryPeriod] = useState(state.salary.period || 'monthly');
   const [newIncomeCat, setNewIncomeCat] = useState('');
   const [newExpenseCat, setNewExpenseCat] = useState('');
+
+  const [aiProvider, setAiProvider] = useState('openrouter');
+  const [orModel, setOrModel] = useState('openai/gpt-4o-mini');
+  const [gmModel, setGmModel] = useState('gemini-2.0-flash');
+  const [hasOrKey, setHasOrKey] = useState(false);
+  const [hasGmKey, setHasGmKey] = useState(false);
+
+  useEffect(() => {
+    api('GET', '/ai/config').then(cfg => {
+      setAiProvider(cfg.provider || 'openrouter');
+      setOrModel(cfg.openrouterModel || 'openai/gpt-4o-mini');
+      setGmModel(cfg.geminiModel || 'gemini-2.0-flash');
+      setHasOrKey(!!cfg.hasOpenrouterKey);
+      setHasGmKey(!!cfg.hasGeminiKey);
+    }).catch(() => {});
+  }, []);
+
+  const changeProvider = async (p) => {
+    setAiProvider(p);
+    try { await api('PUT', '/settings/ai_provider', { value: p }); toast(`Провайдер: ${p === 'gemini' ? 'Gemini' : 'OpenRouter'}`); }
+    catch { toast('Ошибка', '#ff3b30'); }
+  };
+
+  const saveModel = async (provider, value) => {
+    const key = provider === 'gemini' ? 'gemini_model' : 'openrouter_model';
+    try { await api('PUT', `/settings/${key}`, { value }); toast('Модель сохранена!'); }
+    catch { toast('Ошибка', '#ff3b30'); }
+  };
+
+  const saveKey = async (provider, value, clearEl) => {
+    const key = provider === 'gemini' ? 'gemini_key' : 'openrouter_key';
+    if (!value) return;
+    try {
+      await api('PUT', `/settings/${key}`, { value });
+      toast('Ключ сохранён!');
+      if (clearEl) clearEl.value = '';
+      if (provider === 'gemini') setHasGmKey(true); else setHasOrKey(true);
+    } catch { toast('Ошибка', '#ff3b30'); }
+  };
 
   const EXPORT_TYPES = [
     { type: 'incomes', label: 'Доходы' },
@@ -170,29 +224,59 @@ export default function Settings({ toast }) {
       </div>
 
       <div className="panel">
-        <div className="panel-header"><span>🧠 AI-помощник (OpenRouter)</span></div>
+        <div className="panel-header"><span>🧠 AI-помощник</span></div>
         <div className="settings-form">
-          <p className="text-muted">Ключ API для OpenRouter. Если не задан — AI отвечает в базовом режиме.</p>
-          <div className="add-category-row">
-            <input type="password" className="input-field" id="or-key-input" placeholder="sk-or-v1-..." onKeyDown={async (e) => {
-              if (e.key === 'Enter') {
-                const val = e.target.value.trim();
-                if (val) {
-                  try { await api('PUT', '/settings/openrouter_key', { value: val }); toast('Ключ сохранён!'); e.target.value = ''; }
-                  catch { toast('Ошибка', '#ff3b30'); }
-                }
-              }
-            }} />
-            <button className="btn-outline" onClick={async () => {
-              const el = document.getElementById('or-key-input');
-              const val = el?.value?.trim();
-              if (val) {
-                try { await api('PUT', '/settings/openrouter_key', { value: val }); toast('Ключ сохранён!'); el.value = ''; }
-                catch { toast('Ошибка', '#ff3b30'); }
-              }
-            }}>Сохранить</button>
+          <p className="text-muted">Выберите провайдера, модель и укажите ключ API. Если ключ не задан — AI отвечает в базовом режиме.</p>
+
+          <div className={`source-toggle ${aiProvider === 'gemini' ? 'is-second' : ''}`} role="tablist" style={{ maxWidth: 280 }}>
+            <button type="button" className={`source-opt ${aiProvider === 'openrouter' ? 'active' : ''}`} onClick={() => changeProvider('openrouter')}>OpenRouter</button>
+            <button type="button" className={`source-opt ${aiProvider === 'gemini' ? 'active' : ''}`} onClick={() => changeProvider('gemini')}>Gemini</button>
+            <span className="source-thumb" aria-hidden="true"></span>
           </div>
-          <p className="text-muted" style={{ fontSize: 11, marginTop: 4 }}>Получить ключ: <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">openrouter.ai/keys</a>. Введите и нажмите Enter или кнопку.</p>
+
+          {aiProvider === 'openrouter' ? (
+            <>
+              <label style={{ marginTop: 12, display: 'block' }}>Модель</label>
+              <select className="input-field" value={OPENROUTER_MODEL_PRESETS.includes(orModel) ? orModel : '__custom'}
+                onChange={(e) => { if (e.target.value !== '__custom') { setOrModel(e.target.value); saveModel('openrouter', e.target.value); } }}>
+                {OPENROUTER_MODEL_PRESETS.map(m => <option key={m} value={m}>{m}</option>)}
+                <option value="__custom">Другая модель…</option>
+              </select>
+              <input type="text" className="input-field" style={{ marginTop: 6 }} value={orModel}
+                onChange={(e) => setOrModel(e.target.value)}
+                onBlur={() => saveModel('openrouter', orModel)}
+                placeholder="id модели OpenRouter" />
+
+              <label style={{ marginTop: 12, display: 'block' }}>Ключ API {hasOrKey && <span className="text-muted" style={{ fontWeight: 400 }}>(сохранён)</span>}</label>
+              <div className="add-category-row">
+                <input type="password" className="input-field" id="or-key-input" placeholder="sk-or-v1-..."
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveKey('openrouter', e.target.value.trim(), e.target); }} />
+                <button className="btn-outline" onClick={() => { const el = document.getElementById('or-key-input'); saveKey('openrouter', el?.value?.trim(), el); }}>Сохранить</button>
+              </div>
+              <p className="text-muted" style={{ fontSize: 11, marginTop: 4 }}>Получить ключ: <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">openrouter.ai/keys</a>. Введите и нажмите Enter или кнопку.</p>
+            </>
+          ) : (
+            <>
+              <label style={{ marginTop: 12, display: 'block' }}>Модель</label>
+              <select className="input-field" value={GEMINI_MODEL_PRESETS.includes(gmModel) ? gmModel : '__custom'}
+                onChange={(e) => { if (e.target.value !== '__custom') { setGmModel(e.target.value); saveModel('gemini', e.target.value); } }}>
+                {GEMINI_MODEL_PRESETS.map(m => <option key={m} value={m}>{m}</option>)}
+                <option value="__custom">Другая модель…</option>
+              </select>
+              <input type="text" className="input-field" style={{ marginTop: 6 }} value={gmModel}
+                onChange={(e) => setGmModel(e.target.value)}
+                onBlur={() => saveModel('gemini', gmModel)}
+                placeholder="id модели Gemini" />
+
+              <label style={{ marginTop: 12, display: 'block' }}>Ключ API {hasGmKey && <span className="text-muted" style={{ fontWeight: 400 }}>(сохранён)</span>}</label>
+              <div className="add-category-row">
+                <input type="password" className="input-field" id="gm-key-input" placeholder="AIza..."
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveKey('gemini', e.target.value.trim(), e.target); }} />
+                <button className="btn-outline" onClick={() => { const el = document.getElementById('gm-key-input'); saveKey('gemini', el?.value?.trim(), el); }}>Сохранить</button>
+              </div>
+              <p className="text-muted" style={{ fontSize: 11, marginTop: 4 }}>Получить ключ: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">aistudio.google.com/apikey</a>. Введите и нажмите Enter или кнопку.</p>
+            </>
+          )}
         </div>
       </div>
 

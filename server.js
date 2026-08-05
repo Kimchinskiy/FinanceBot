@@ -73,19 +73,19 @@ app.get('/api/settings', authRequired, async (req, res) => {
   }
 });
 
+// Настройки AI-провайдера общие для всего инстанса, а не per-user
+const AI_SYSTEM_SETTING_KEYS = ['openrouter_key', 'openrouter_model', 'gemini_key', 'gemini_model', 'ai_provider'];
+
 app.put('/api/settings/:key', authRequired, async (req, res) => {
   try {
     const { key } = req.params;
     const { value } = req.body;
-    const uid = key === 'openrouter_key' ? 'system' : req.userId;
+    const uid = AI_SYSTEM_SETTING_KEYS.includes(key) ? 'system' : req.userId;
     await query(
       `INSERT OR REPLACE INTO settings (user_id, key, value, updated_at)
        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
       [uid, key, JSON.stringify(value)]
     );
-    if (key === 'openrouter_key') {
-      process.env.OPENROUTER_API_KEY = String(value);
-    }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
