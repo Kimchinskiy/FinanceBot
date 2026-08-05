@@ -6,6 +6,7 @@
 // ===================================================================
 const { Telegraf, Markup } = require('telegraf');
 const { upsertUserByTg, signToken } = require('./auth');
+const { currentMonthVladivostok, currentDayVladivostok } = require('./timezone');
 
 let bot = null;
 let query = null;
@@ -115,7 +116,7 @@ function createBot(token, appUrl, db) {
         api('/api/incomes', tk), api('/api/expenses', tk),
         api('/api/mandatory', tk), api('/api/accounts/total', tk),
       ]);
-      const month = new Date().toISOString().slice(0, 7);
+      const month = currentMonthVladivostok();
       const mInc = inc.filter(i => i.datetime.startsWith(month)).reduce((s, i) => s + Number(i.amount), 0);
       const mExp = exp.filter(e => e.datetime.startsWith(month)).reduce((s, e) => s + Number(e.amount), 0);
       const pending = mand.filter(m => m.status !== 'paid');
@@ -175,7 +176,7 @@ async function sendReminders() {
       if (!tk) continue;
       try {
         const mand = await apiRemind(`/api/mandatory`, tk);
-        const today = new Date().getDate();
+        const today = currentDayVladivostok();
         const due = mand.filter(m => m.status !== 'paid' && m.day != null)
           .filter(m => {
             const diff = m.day - today;

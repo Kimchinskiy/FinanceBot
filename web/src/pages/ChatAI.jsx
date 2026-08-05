@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '../api.js';
+import { useStore } from '../store.jsx';
 import { Message, MessageAvatar, MessageContent, MessageHeader, MessageFooter, MessageGroup } from '../components/chat/Message.jsx';
 import { Bubble, BubbleContent } from '../components/chat/Bubble.jsx';
 
@@ -70,7 +71,9 @@ function ChatMessage({ message }) {
 }
 
 export default function ChatAI({ toast }) {
-  const [messages, setMessages] = useState([]);
+  const { state, update } = useStore();
+  const messages = state.chatMessages;
+  const setMessages = (updater) => update({ chatMessages: typeof updater === 'function' ? updater(messages) : updater });
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const bottomRef = useRef(null);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store.jsx';
 import { api } from '../api.js';
-import { now } from '../utils.js';
+import { now, suggestCategory } from '../utils.js';
 
 export default function QuickAddModal({ open, type, editing, onClose, onSaved, toast }) {
   const { state } = useStore();
@@ -12,6 +12,7 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
   const [desc, setDesc] = useState('');
   const [date, setDate] = useState(now());
   const [saving, setSaving] = useState(false);
+  const [categoryTouched, setCategoryTouched] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -22,6 +23,7 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
         setSource(editing.source || 'Карта');
         setDesc(editing.description || '');
         setDate(editing.datetime ? editing.datetime.slice(0, 16) : now());
+        setCategoryTouched(true);
       } else {
         setModalType(type || 'expense');
         setAmount('');
@@ -30,12 +32,28 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
         setSource('Карта');
         const cats = (type || 'expense') === 'income' ? state.incomeCategories : state.expenseCategories;
         setCategory(cats[0] || '');
+        setCategoryTouched(false);
       }
     }
   }, [open, type, editing, state.incomeCategories, state.expenseCategories]);
 
   const cats = modalType === 'income' ? state.incomeCategories : state.expenseCategories;
   const isEdit = !!editing;
+
+  // Автоподсказка категории по истории: описание в приоритете, иначе — близкая сумма.
+  // Не трогаем категорию, если пользователь уже выбрал её сам, и не работаем в режиме редактирования.
+  useEffect(() => {
+    if (!open || isEdit || categoryTouched) return;
+    const t = setTimeout(() => {
+      const entries = modalType === 'income' ? state.incomes : state.expenses;
+      const suggestion = suggestCategory(entries, { description: desc, amount });
+      if (suggestion && cats.includes(suggestion) && suggestion !== category) {
+        setCategory(suggestion);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desc, amount, modalType, open]);
 
   const save = async () => {
     if (saving) return;
@@ -85,7 +103,7 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
           </div>
           <div className="form-group">
             <label>Категория</label>
-            <select className="input-field" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <select className="input-field" value={category} onChange={(e) => { setCategory(e.target.value); setCategoryTouched(true); }}>
               {cats.map(c => <option key={c}>{c}</option>)}
             </select>
           </div>

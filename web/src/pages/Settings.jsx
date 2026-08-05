@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store.jsx';
-import { api } from '../api.js';
+import { api, apiDownload } from '../api.js';
 import { findAccountByName, fmt, DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS } from '../utils.js';
 import TelegramLoginButton from '../components/TelegramLoginButton.jsx';
 
@@ -13,6 +13,23 @@ export default function Settings({ toast }) {
   const [salaryPeriod, setSalaryPeriod] = useState(state.salary.period || 'monthly');
   const [newIncomeCat, setNewIncomeCat] = useState('');
   const [newExpenseCat, setNewExpenseCat] = useState('');
+
+  const EXPORT_TYPES = [
+    { type: 'incomes', label: 'Доходы' },
+    { type: 'expenses', label: 'Расходы' },
+    { type: 'mandatory', label: 'Обязательные платежи' },
+    { type: 'debts', label: 'Долги' },
+    { type: 'credit-cards', label: 'Кредитки' },
+    { type: 'goals', label: 'Цели' },
+  ];
+
+  const exportCsv = async (type) => {
+    try {
+      await apiDownload(`/export/${type}`, `${type}.csv`);
+    } catch (e) {
+      toast('Ошибка экспорта', '#ff3b30');
+    }
+  };
 
   const saveAccountBalance = async (name, type, balance) => {
     const acc = findAccountByName(state.accounts, name);
@@ -199,9 +216,13 @@ export default function Settings({ toast }) {
         <div className="panel-header"><span>⚠️ Данные</span></div>
         <div className="settings-form">
           <div className="excel-note">
-            <div className="excel-note-title">📊 Экспорт в Excel</div>
-            <p className="text-muted">Скоро здесь появится выгрузка операций в формате Excel (.xlsx). Фундамент заложен — функция в разработке.</p>
-            <button className="btn-outline" disabled>📥 Скачать Excel (скоро)</button>
+            <div className="excel-note-title">📊 Экспорт данных</div>
+            <p className="text-muted">Выгрузка в CSV — открывается в Excel и Google Таблицах.</p>
+            <div className="export-btn-row">
+              {EXPORT_TYPES.map(e => (
+                <button key={e.type} className="btn-outline" onClick={() => exportCsv(e.type)}>📥 {e.label}</button>
+              ))}
+            </div>
           </div>
           <hr style={{ borderColor: 'var(--border)', margin: '12px 0' }} />
           <button className="btn-danger" onClick={clearData}>🗑️ Очистить все данные</button>

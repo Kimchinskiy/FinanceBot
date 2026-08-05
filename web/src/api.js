@@ -38,3 +38,29 @@ export async function api(method, path, body) {
   if (!res.ok) throw new Error(data.error || 'Ошибка запроса');
   return data;
 }
+
+// Скачивание файла (например CSV-экспорта) с авторизацией через заголовок —
+// обычная <a href> ссылка не может передать JWT, поэтому качаем через fetch+blob.
+export async function apiDownload(path, filename) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch('/api' + path, { headers });
+  if (res.status === 401) {
+    clearToken();
+    throw new Error('unauthorized');
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Ошибка экспорта');
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

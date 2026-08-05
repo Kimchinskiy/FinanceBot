@@ -16,6 +16,7 @@ export function StoreProvider({ children }) {
     salary: { day: null, amount: 0, period: 'monthly' },
     incomeCategories: [...DEFAULT_INCOME_CATS],
     expenseCategories: [...DEFAULT_EXPENSE_CATS],
+    chatMessages: [],
   });
   const [loading, setLoading] = useState(false);
   const [quotesConfig, setQuotesConfig] = useState({ crypto: true, stocks: false });

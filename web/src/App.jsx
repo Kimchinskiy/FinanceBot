@@ -94,11 +94,6 @@ function AppInner() {
   return (
     <>
       <nav className="navbar">
-        <div className="navbar-logo">
-          <div className="logo-icon">💰</div>
-          <span className="logo-text">FinanceBot</span>
-        </div>
-
         <NavigationMenu className="navbar-nav desktop-nav">
           <NavigationMenuList>
             {NAV_ITEMS.map(p => (
@@ -120,6 +115,9 @@ function AppInner() {
       </nav>
 
       <button className="fab" onClick={() => openQuickAdd('expense')} aria-label="Добавить операцию">+</button>
+      {page !== 'chat' && (
+        <button className="chat-fab" onClick={() => navigate('chat')} aria-label="AI-помощник">🧠</button>
+      )}
 
       <main className="main-content">
         <header className="topbar">

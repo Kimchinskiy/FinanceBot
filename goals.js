@@ -3,6 +3,7 @@
 // ===================================================================
 const express = require('express');
 const router = express.Router();
+const { nowVladivostok } = require('./timezone');
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -92,7 +93,7 @@ router.get('/suggest', async (req, res) => {
   const date = req.query.date;
   if (!amount || !date) return res.status(400).json({ error: 'Укажите amount и date' });
   try {
-    const months = monthDiff(new Date(), new Date(date));
+    const months = monthDiff(nowVladivostok(), new Date(date));
     const safeMonths = Math.max(months, 1);
     const perMonth = Math.ceil(amount / safeMonths);
     const already = parseFloat(req.query.current_amount) || 0;

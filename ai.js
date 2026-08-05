@@ -6,6 +6,7 @@
 // ===================================================================
 const express = require('express');
 const router = express.Router();
+const { nowVladivostok } = require('./timezone');
 
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_APi || process.env.OPENROUTER_API;
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
@@ -51,19 +52,21 @@ async function openRouterChat(messages, query, temperature = 0.7) {
 
 // Анонимизированная сводка пользователя за последние 3 месяца
 async function buildSummary(query, userId) {
-  const monthAgo = new Date(); monthAgo.setMonth(monthAgo.getMonth() - 1);
-  const threeAgo = new Date(); threeAgo.setMonth(threeAgo.getMonth() - 3);
+  const monthAgo = nowVladivostok(); monthAgo.setMonth(monthAgo.getMonth() - 1);
+  const threeAgo = nowVladivostok(); threeAgo.setMonth(threeAgo.getMonth() - 3);
 
   const groupSql = (table) => `
     SELECT category, COALESCE(SUM(amount),0) AS total
     FROM ${table} WHERE user_id=? AND datetime >= ? GROUP BY category ORDER BY total DESC`;
 
-  const [inc, exp, mand, goals, cards] = await Promise.all([
+  const [inc, exp, mand, goals, cards, accounts, debts] = await Promise.all([
     query(groupSql('incomes'), [userId, threeAgo.toISOString()]),
     query(groupSql('expenses'), [userId, threeAgo.toISOString()]),
     query('SELECT name, amount, type, day, status FROM mandatory_payments WHERE user_id=?', [userId]),
     query('SELECT title, target_amount, current_amount, deadline FROM goals WHERE user_id=?', [userId]),
     query('SELECT name, limit_amount, balance FROM credit_cards WHERE user_id=?', [userId]),
+    query('SELECT name, type, currency, balance FROM accounts WHERE user_id=?', [userId]),
+    query('SELECT person, amount, note, direction, status, due_date FROM debts WHERE user_id=?', [userId]),
   ]);
 
   // Расходы текущего месяца vs среднего за 3 месяца по категориям
@@ -86,13 +89,19 @@ async function buildSummary(query, userId) {
   summary += `\n\nКредитные карты:\n` + (cards.rows.length
     ? cards.rows.map(c => `  • ${c.name}: задолженность ${rub(c.balance)} из лимита ${rub(c.limit_amount)}, доступно ${rub(Math.max(0, c.limit_amount - c.balance))}`).join('\n')
     : '  (нет)');
+  summary += `\n\nСчета и балансы:\n` + (accounts.rows.length
+    ? accounts.rows.map(a => `  • ${a.name} (${a.type}): ${rub(a.balance)} ${a.currency || ''}`).join('\n')
+    : '  (нет)');
+  summary += `\n\nДолги:\n` + (debts.rows.length
+    ? debts.rows.map(d => `  • ${d.person}: ${rub(d.amount)}${d.direction === 'i_owe' ? ' (я должен)' : ' (мне должны)'}${d.status === 'paid' ? ' [закрыт]' : ''}${d.due_date ? ', срок ' + d.due_date : ''}${d.note ? ' — ' + d.note : ''}`).join('\n')
+    : '  (нет)');
   return summary;
 }
 
 // Rule-based советы (детерминированные, без LLM)
 async function ruleBasedAdvice(query, userId) {
-  const monthAgo = new Date(); monthAgo.setMonth(monthAgo.getMonth() - 1);
-  const threeAgo = new Date(); threeAgo.setMonth(threeAgo.getMonth() - 3);
+  const monthAgo = nowVladivostok(); monthAgo.setMonth(monthAgo.getMonth() - 1);
+  const threeAgo = nowVladivostok(); threeAgo.setMonth(threeAgo.getMonth() - 3);
 
   const cur = await query(
     `SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses
@@ -148,6 +157,7 @@ router.post('/advice', async (req, res) => {
 - Не выдумывай цифры, которых нет в сводке
 - Анализируй: где можно сократить расходы, как оптимизировать долги и кредитку, что сделать для достижения целей
 - Если у пользователя есть кредитная карта — рекомендую как ей управлять (не превышать лимит, вовремя гасить)
+- Учитывай реальные балансы счетов и долги (кто кому должен) из сводки при советах о свободных средствах
 - Если есть свободные средства — предложи варианты: накопление, досрочное погашение долгов, инвестиции`;
 
     const aiText = await openRouterChat([
@@ -175,7 +185,7 @@ router.post('/chat', async (req, res) => {
     const systemChatPrompt = `Ты — персональный финансовый AI-помощник в приложении FinanceBot.
 
 Твоя роль:
-- Анализировать финансы пользователя на основе его данных: доходы, расходы, обязательные платежи, долги, кредитные карты, цели накопления
+- Анализировать финансы пользователя на основе его данных: доходы, расходы, обязательные платежи, долги, кредитные карты, счета и балансы, цели накопления
 - Отвечать на вопросы о финансах, давать конкретные рекомендации
 - Помогать принимать решения: может ли пользователь позволить себе покупку, сколько можно отложить, как сократить расходы
 

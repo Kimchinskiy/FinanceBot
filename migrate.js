@@ -143,6 +143,8 @@ const columnMigrations = [
   { table: 'expenses', column: 'source', def: `source TEXT NOT NULL DEFAULT 'Карта'` },
   // Источник для обязательных платежей и долгов
   { table: 'mandatory_payments', column: 'source', def: `source TEXT NOT NULL DEFAULT 'Карта'` },
+  // Отметка месяца последнего изменения статуса — нужна для автосброса "оплачено"→"ожидает" в новом месяце
+  { table: 'mandatory_payments', column: 'status_updated_at', def: `status_updated_at TEXT` },
   { table: 'debts', column: 'source', def: `source TEXT NOT NULL DEFAULT 'Карта'` },
   // Инвестиционные активы (крипта/акции/вклады)
   { table: 'accounts', column: 'symbol',           def: `symbol TEXT` },

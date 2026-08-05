@@ -10,8 +10,10 @@ const accountsRouter = require('./accounts');
 const goalsRouter = require('./goals');
 const aiRouter = require('./ai');
 const creditCardsRouter = require('./creditCards');
+const exportRouter = require('./exportCsv');
 const { router: quotesRouter } = require('./quotes');
 const { runMigration } = require('./migrate');
+const { currentMonthVladivostok, nowVladivostokIso } = require('./timezone');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -291,8 +293,24 @@ app.delete('/api/expenses/:id', authRequired, async (req, res) => {
 });
 
 /* ──────────────────── MANDATORY (per-user) ──────────────────── */
+// Автосброс "оплачено" → "ожидает" при наступлении нового месяца
+// (по владивостокскому времени), чтобы обязательные платежи обновлялись
+// сами каждый месяц без ручного вмешательства.
+async function resetStaleMandatory(userId) {
+  const nowMonth = currentMonthVladivostok();
+  const nowIso = nowVladivostokIso();
+  await query(
+    `UPDATE mandatory_payments
+     SET status = 'pending', status_updated_at = ?
+     WHERE user_id = ? AND status = 'paid'
+       AND strftime('%Y-%m', COALESCE(status_updated_at, created_at)) <> ?`,
+    [nowIso, userId, nowMonth]
+  );
+}
+
 app.get('/api/mandatory', authRequired, async (req, res) => {
   try {
+    await resetStaleMandatory(req.userId);
     const result = await query('SELECT * FROM mandatory_payments WHERE user_id = ? ORDER BY day ASC', [req.userId]);
     res.json(result.rows);
   } catch (err) {
@@ -306,8 +324,8 @@ app.post('/api/mandatory', authRequired, async (req, res) => {
     const src = source || 'Карта';
     const id = uid();
     await query(
-      'INSERT INTO mandatory_payments (id, user_id, name, amount, category, day, type, status, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, req.userId, name, amount, category, day || null, type || 'monthly', status || 'pending', src]
+      'INSERT INTO mandatory_payments (id, user_id, name, amount, category, day, type, status, source, status_updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, req.userId, name, amount, category, day || null, type || 'monthly', status || 'pending', src, nowVladivostokIso()]
     );
     res.json({ id });
   } catch (err) {
@@ -320,9 +338,9 @@ app.put('/api/mandatory/:id', authRequired, async (req, res) => {
     const { name, amount, category, day, type, status, source } = req.body;
     const src = source || 'Карта';
     await query(
-      `UPDATE mandatory_payments SET name = ?, amount = ?, category = ?, day = ?, type = ?, status = ?, source = ?
+      `UPDATE mandatory_payments SET name = ?, amount = ?, category = ?, day = ?, type = ?, status = ?, source = ?, status_updated_at = ?
        WHERE id = ? AND user_id = ?`,
-      [name, amount, category, day || null, type, status, src, req.params.id, req.userId]
+      [name, amount, category, day || null, type, status, src, nowVladivostokIso(), req.params.id, req.userId]
     );
     res.json({ ok: true });
   } catch (err) {
@@ -341,15 +359,17 @@ app.delete('/api/mandatory/:id', authRequired, async (req, res) => {
 
 app.patch('/api/mandatory/:id/toggle', authRequired, async (req, res) => {
   try {
+    await resetStaleMandatory(req.userId);
     const row = await query('SELECT amount, status, source FROM mandatory_payments WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
     if (!row.rows[0]) return res.status(404).json({ error: 'Не найдено' });
     const wasPaid = row.rows[0].status === 'paid';
     const src = row.rows[0].source || 'Карта';
 
     await query(
-      `UPDATE mandatory_payments SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END
+      `UPDATE mandatory_payments SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END,
+       status_updated_at = ?
        WHERE id = ? AND user_id = ?`,
-      [req.params.id, req.userId]
+      [nowVladivostokIso(), req.params.id, req.userId]
     );
 
     const amt = Number(row.rows[0].amount);
@@ -473,6 +493,7 @@ app.use('/api/goals', authRequired, goalsRouter);
 app.use('/api/ai', authRequired, aiRouter);
 app.use('/api/quotes', authRequired, quotesRouter);
 app.use('/api/credit-cards', authRequired, creditCardsRouter);
+app.use('/api/export', authRequired, exportRouter);
 
 /* ──────────────────── SPA FALLBACK (React) ──────────────────── */
 // Все не-API GET-запросы отдаём index.html собранного фронта

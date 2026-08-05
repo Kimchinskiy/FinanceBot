@@ -48,6 +48,16 @@
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.10);
 
   --trans: 0.25s cubic-bezier(0.4,0,0.2,1);
+
+  /* Navbar (dark glow, scoped to navbar only) */
+  --navbar-bg: rgba(20, 14, 28, 0.72);
+  --navbar-border: rgba(175,82,222,0.28);
+  --navbar-glow: rgba(175,82,222,0.45);
+  --navbar-text: rgba(255,255,255,0.72);
+  --navbar-text-active: #ffffff;
+  --navbar-pill-active-bg: linear-gradient(135deg, #af52de, #7c3aed);
+  --navbar-cta-bg: #ffffff;
+  --navbar-cta-text: #14101c;
 }
 
 html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
@@ -88,17 +98,20 @@ body {
 /* ===== NAVBAR ===== */
 .navbar {
   position: sticky;
-  top: 0;
+  top: 12px;
   z-index: 100;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 22px;
+  padding: 0 20px;
   height: 52px;
-  background: rgba(255,255,255,0.72);
+  margin: 12px 16px 0;
+  border-radius: 999px;
+  background: var(--navbar-bg);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--navbar-border);
+  box-shadow: 0 0 40px var(--navbar-glow), 0 4px 24px rgba(0,0,0,0.35);
 }
 .navbar-logo {
   display: flex;
@@ -107,6 +120,11 @@ body {
   flex-shrink: 0;
   margin-right: 12px;
 }
+.navbar-logo .logo-icon {
+  background: var(--navbar-pill-active-bg);
+  box-shadow: 0 0 12px var(--navbar-glow);
+}
+.navbar-logo .logo-text { color: var(--navbar-text-active); }
 .navbar-nav {
   display: flex;
   align-items: center;
@@ -130,16 +148,24 @@ body {
   transition: all var(--trans);
   cursor: pointer;
 }
-.navbar-nav .nav-item:hover { color: var(--text-primary); background: var(--bg-hover); }
+.navbar-nav .nav-item { color: var(--navbar-text); }
+.navbar-nav .nav-item:hover { color: #fff; background: rgba(255,255,255,0.08); }
 .navbar-nav .nav-item.active {
-  background: var(--text-primary);
+  background: var(--navbar-pill-active-bg);
   color: #fff;
+  box-shadow: 0 0 16px var(--navbar-glow);
 }
 .navbar-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+.navbar-actions .btn-primary {
+  background: var(--navbar-cta-bg);
+  color: var(--navbar-cta-text);
+  border-radius: 999px;
+  font-weight: 600;
 }
 
 /* Nav icons visible on both desktop and mobile */
@@ -190,6 +216,31 @@ body {
   transition: transform var(--trans), background var(--trans);
 }
 .fab:active { transform: scale(0.92); }
+
+/* Global AI chat entry point (visible on all pages, all viewport sizes) */
+.chat-fab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  left: 18px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: var(--navbar-pill-active-bg);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 210;
+  box-shadow: 0 8px 24px var(--navbar-glow);
+  transition: transform var(--trans);
+}
+.chat-fab:active { transform: scale(0.92); }
+@media (max-width: 700px) {
+  .chat-fab { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); left: 14px; width: 48px; height: 48px; font-size: 20px; }
+}
 
 .logo-icon {
   width: 30px; height: 30px;
@@ -587,7 +638,7 @@ body {
 }
 .badge-income { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
 .badge-expense { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
-.ops-tabs { margin-bottom: 16px; }
+.ops-tabs { margin-bottom: 16px; padding: 0; }
 .action-btn {
   background: none;
   border: none;
@@ -873,6 +924,7 @@ body {
 }
 .excel-note-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
 .excel-note .text-muted { line-height: 1.5; }
+.export-btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-outline:disabled:hover { background: transparent; }
 
@@ -922,10 +974,16 @@ body {
 .modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
 .modal-tabs {
   display: flex;
+  align-items: center;
   gap: 4px;
   padding: 0 24px;
 }
 .tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1;
   background: var(--bg-elevated);
   border: none;
   color: var(--text-secondary);
