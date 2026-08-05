@@ -7,8 +7,8 @@ function populateMonths(data) {
   return [...new Set(data.map(d => d.datetime.slice(0, 7)))].sort().reverse();
 }
 
-export default function Operations({ toast, onEdit, onDelete }) {
-  const { state, reload } = useStore();
+export default function Operations({ onEdit }) {
+  const { state, reload, toast, confirmAction } = useStore();
   const [tab, setTab] = useState('all'); // all | income | expense
   const [month, setMonth] = useState('');
   const [q, setQ] = useState('');
@@ -34,19 +34,21 @@ export default function Operations({ toast, onEdit, onDelete }) {
   }
   data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
 
-  const handleDelete = async (item) => {
-    try {
-      if (item.kind === 'income') {
-        await api('DELETE', `/incomes/${item.id}`);
-        await reload('incomes');
-      } else {
-        await api('DELETE', `/expenses/${item.id}`);
-        await reload('expenses');
+  const handleDelete = (item) => {
+    confirmAction(`Удалить операцию «${item.description || item.category}»?`, async () => {
+      try {
+        if (item.kind === 'income') {
+          await api('DELETE', `/incomes/${item.id}`);
+          await reload('incomes');
+        } else {
+          await api('DELETE', `/expenses/${item.id}`);
+          await reload('expenses');
+        }
+        toast('Удалено');
+      } catch {
+        toast('Ошибка удаления', '#ff3b30');
       }
-      onDelete();
-    } catch {
-      toast('Ошибка удаления', '#ef4444');
-    }
+    });
   };
 
   return (
@@ -110,8 +112,8 @@ export default function Operations({ toast, onEdit, onDelete }) {
                   </td>
                   <td data-label="">
                     <span className="action-group">
-                      <button className="action-btn" onClick={() => onEdit(item)} title="Изменить">✎</button>
-                      <button className="action-btn" onClick={() => handleDelete(item)} title="Удалить">🗑</button>
+                      <button className="action-btn" onClick={() => onEdit(item)} title="Изменить" aria-label="Изменить">✎</button>
+                      <button className="action-btn" onClick={() => handleDelete(item)} title="Удалить" aria-label="Удалить">🗑</button>
                     </span>
                   </td>
                 </tr>

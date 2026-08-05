@@ -7,6 +7,27 @@ const StoreContext = createContext(null);
 export function StoreProvider({ children }) {
   const [token, setTokenState] = useState(getToken());
   const [user, setUserState] = useState(null);
+
+  // Глобальные toast-уведомления — доступны из любого компонента и из
+  // самого стора (например, при ошибке фонового loadAll()), без прокидывания
+  // пропсами через всё дерево.
+  const [toasts, setToasts] = useState([]);
+  const toast = useCallback((msg, color) => {
+    const id = Date.now() + Math.random();
+    setToasts(t => [...t, { id, msg, color }]);
+  }, []);
+  const dismissToast = useCallback((id) => setToasts(t => t.filter(x => x.id !== id)), []);
+
+  // Глобальное подтверждение удаления — один компонент ConfirmDialog в
+  // App.jsx, вызывается отовсюду через confirmAction(text, onConfirm).
+  const [confirmState, setConfirmState] = useState(null);
+  const confirmAction = useCallback((text, onConfirm) => setConfirmState({ text, onConfirm }), []);
+  const resolveConfirm = useCallback((confirmed) => {
+    setConfirmState(cur => {
+      if (confirmed && cur?.onConfirm) cur.onConfirm();
+      return null;
+    });
+  }, []);
   const [state, setState] = useState({
     incomes: [],
     expenses: [],
@@ -62,8 +83,9 @@ export function StoreProvider({ children }) {
       }));
     } catch (e) {
       console.error('Load error', e);
+      toast('Не удалось загрузить данные. Проверьте соединение и обновите страницу.', '#ff3b30');
     }
-  }, []);
+  }, [toast]);
 
   const refreshQuotesConfig = useCallback(async () => {
     try { setQuotesConfig(await api('GET', '/quotes/config')); } catch {}
@@ -139,6 +161,8 @@ export function StoreProvider({ children }) {
       loadAll, startApp, refreshQuotesConfig,
       login, register, logout, loginTelegram, linkTelegram,
       reload, update, setState,
+      toast, toasts, dismissToast,
+      confirmState, confirmAction, resolveConfirm,
     }}>
       {children}
     </StoreContext.Provider>

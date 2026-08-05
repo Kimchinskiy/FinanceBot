@@ -181,6 +181,13 @@ function runMigration() {
       }
     }
   }
+  // Бэкфилл status_updated_at для платежей, помеченных оплаченными ещё до
+  // появления этой колонки — иначе автосброс "оплачено"→"ожидает" в
+  // server.js сравнивал бы владивостокский месяц с UTC-временем created_at
+  // и мог ложно срабатывать в узком окне суток на старых записях.
+  try {
+    db.exec(`UPDATE mandatory_payments SET status_updated_at = created_at WHERE status = 'paid' AND status_updated_at IS NULL`);
+  } catch (_) { /* колонка могла ещё не существовать при самом первом запуске — не критично */ }
 }
 
 module.exports = { runMigration };

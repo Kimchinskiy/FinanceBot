@@ -16,6 +16,34 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
+// Простой in-memory rate-limit на попытки логина (по IP+email), чтобы
+// нельзя было перебирать пароль без ограничений. Сбрасывается при рестарте
+// процесса — этого достаточно для одного инстанса на VPS.
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const loginAttempts = new Map();
+
+function loginRateLimited(key) {
+  const entry = loginAttempts.get(key);
+  if (entry && entry.lockedUntil && Date.now() < entry.lockedUntil) {
+    return Math.ceil((entry.lockedUntil - Date.now()) / 1000);
+  }
+  return null;
+}
+function recordLoginFailure(key) {
+  const now = Date.now();
+  let entry = loginAttempts.get(key);
+  if (!entry || now - entry.firstAttempt > LOGIN_WINDOW_MS) {
+    entry = { count: 0, firstAttempt: now };
+  }
+  entry.count++;
+  if (entry.count >= LOGIN_MAX_ATTEMPTS) entry.lockedUntil = now + LOGIN_WINDOW_MS;
+  loginAttempts.set(key, entry);
+}
+function recordLoginSuccess(key) {
+  loginAttempts.delete(key);
+}
+
 function signToken(user) {
   return jwt.sign({ sub: user.id, email: user.email || null, tg: user.tg_id || null }, JWT_SECRET, { expiresIn: TOKEN_TTL });
 }
@@ -53,7 +81,10 @@ function verifyTelegramHash(data) {
     .join('\n');
   const secret = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
   const computed = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
-  return computed === hash;
+  const a = Buffer.from(computed, 'hex');
+  const b = Buffer.from(String(hash), 'hex');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 const router = express.Router();
@@ -93,13 +124,17 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email и пароль обязательны' });
+  const rateKey = `${req.ip}:${email.toLowerCase()}`;
+  const lockedSec = loginRateLimited(rateKey);
+  if (lockedSec) return res.status(429).json({ error: `Слишком много попыток. Попробуйте через ${lockedSec} сек.` });
   const { query } = req.app.locals.db;
   try {
     const result = await query('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]);
     const user = result.rows[0];
-    if (!user || !user.password_hash) return res.status(401).json({ error: 'Неверный email или пароль' });
+    if (!user || !user.password_hash) { recordLoginFailure(rateKey); return res.status(401).json({ error: 'Неверный email или пароль' }); }
     const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) return res.status(401).json({ error: 'Неверный email или пароль' });
+    if (!ok) { recordLoginFailure(rateKey); return res.status(401).json({ error: 'Неверный email или пароль' }); }
+    recordLoginSuccess(rateKey);
     const token = signToken({ id: user.id, email: user.email });
     res.json({ token, user: { id: user.id, email: user.email } });
   } catch (err) {

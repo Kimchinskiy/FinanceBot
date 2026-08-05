@@ -3,8 +3,8 @@ import { useStore } from '../store.jsx';
 import { api } from '../api.js';
 import { fmt, fmtDateTime } from '../utils.js';
 
-export default function CreditCards({ toast }) {
-  const { state } = useStore();
+export default function CreditCards() {
+  const { toast, confirmAction } = useStore();
   const [cards, setCards] = useState([]);
   const [selected, setSelected] = useState(null);
   const [txns, setTxns] = useState([]);
@@ -15,10 +15,17 @@ export default function CreditCards({ toast }) {
   const [closingDate, setClosingDate] = useState('');
   const [paymentDate, setPaymentDate] = useState('');
 
+  const [txnModal, setTxnModal] = useState(null); // { card, type: 'purchase' | 'payment' }
+  const [txnAmount, setTxnAmount] = useState('');
+  const [txnDesc, setTxnDesc] = useState('');
+  const [txnCategory, setTxnCategory] = useState('');
+
   const loadCards = async () => {
     try {
       setCards(await api('GET', '/credit-cards'));
-    } catch {}
+    } catch {
+      toast('Не удалось загрузить кредитки', '#ff3b30');
+    }
   };
 
   useEffect(() => { loadCards(); }, []);
@@ -52,44 +59,48 @@ export default function CreditCards({ toast }) {
     } catch { toast('Ошибка', '#ff3b30'); }
   };
 
-  const deleteCard = async (id) => {
-    if (!confirm('Удалить карту и все её транзакции?')) return;
-    try {
-      await api('DELETE', `/credit-cards/${id}`);
-      await loadCards();
-      if (selected?.id === id) { setSelected(null); setTxns([]); }
-      toast('Карта удалена');
-    } catch { toast('Ошибка', '#ff3b30'); }
+  const deleteCard = (id, cardName) => {
+    confirmAction(`Удалить карту «${cardName}» и все её транзакции?`, async () => {
+      try {
+        await api('DELETE', `/credit-cards/${id}`);
+        await loadCards();
+        if (selected?.id === id) { setSelected(null); setTxns([]); }
+        toast('Карта удалена');
+      } catch { toast('Ошибка', '#ff3b30'); }
+    });
   };
 
   const showTransactions = async (card) => {
     setSelected(card);
     try {
       setTxns(await api('GET', `/credit-cards/${card.id}/transactions`));
-    } catch {}
+    } catch {
+      toast('Не удалось загрузить операции по карте', '#ff3b30');
+    }
   };
 
-  const addPurchase = async (card) => {
-    const amt = prompt('Сумма покупки (₽):');
-    if (!amt || isNaN(amt) || Number(amt) <= 0) return;
-    const desc = prompt('Описание (необязательно):');
-    const cat = prompt('Категория (необязательно):');
-    try {
-      await api('POST', `/credit-cards/${card.id}/purchase`, { amount: Number(amt), description: desc || '', category: cat || null });
-      await loadCards();
-      await showTransactions(card);
-      toast('Покупка добавлена');
-    } catch { toast('Ошибка', '#ff3b30'); }
+  const openTxnModal = (card, type) => {
+    setTxnModal({ card, type });
+    setTxnAmount('');
+    setTxnDesc('');
+    setTxnCategory('');
   };
 
-  const addPayment = async (card) => {
-    const amt = prompt('Сумма оплаты (₽):');
-    if (!amt || isNaN(amt) || Number(amt) <= 0) return;
+  const submitTxn = async () => {
+    const amt = Number(txnAmount);
+    if (!txnAmount || isNaN(amt) || amt <= 0) { toast('Введите сумму', '#ff3b30'); return; }
+    const { card, type } = txnModal;
     try {
-      await api('POST', `/credit-cards/${card.id}/payment`, { amount: Number(amt), description: 'Оплата кредитки' });
+      if (type === 'purchase') {
+        await api('POST', `/credit-cards/${card.id}/purchase`, { amount: amt, description: txnDesc || '', category: txnCategory || null });
+        toast('Покупка добавлена');
+      } else {
+        await api('POST', `/credit-cards/${card.id}/payment`, { amount: amt, description: txnDesc || 'Оплата кредитки' });
+        toast('Платёж проведён');
+      }
       await loadCards();
-      await showTransactions(card);
-      toast('Платёж проведён');
+      if (selected?.id === card.id) await showTransactions(card);
+      setTxnModal(null);
     } catch { toast('Ошибка', '#ff3b30'); }
   };
 
@@ -104,7 +115,7 @@ export default function CreditCards({ toast }) {
           <div className="modal">
             <div className="modal-header">
               <h2>{editing ? 'Изменить карту' : 'Новая кредитная карта'}</h2>
-              <button className="modal-close" onClick={() => setShowForm(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowForm(false)} aria-label="Закрыть">✕</button>
             </div>
             <div className="modal-body">
               <div className="form-group">
@@ -132,6 +143,37 @@ export default function CreditCards({ toast }) {
         </div>
       )}
 
+      {txnModal && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setTxnModal(null); }}>
+          <div className="modal">
+            <div className="modal-header">
+              <h2>{txnModal.type === 'purchase' ? 'Новая покупка' : 'Оплата долга'}</h2>
+              <button className="modal-close" onClick={() => setTxnModal(null)} aria-label="Закрыть">✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Сумма (₽)</label>
+                <input type="number" className="input-field" placeholder="0.00" autoFocus value={txnAmount} onChange={(e) => setTxnAmount(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>Описание (необязательно)</label>
+                <input type="text" className="input-field" placeholder="Краткое описание" value={txnDesc} onChange={(e) => setTxnDesc(e.target.value)} />
+              </div>
+              {txnModal.type === 'purchase' && (
+                <div className="form-group">
+                  <label>Категория (необязательно)</label>
+                  <input type="text" className="input-field" placeholder="Например, Еда" value={txnCategory} onChange={(e) => setTxnCategory(e.target.value)} />
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-outline" onClick={() => setTxnModal(null)}>Отмена</button>
+              <button className="btn-primary" onClick={submitTxn}>Сохранить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {cards.length === 0 ? (
         <div className="empty-state">Нет кредитных карт. Добавьте первую!</div>
       ) : (
@@ -143,7 +185,8 @@ export default function CreditCards({ toast }) {
                 <div className="credit-card-header">
                   <div className="credit-card-name">{c.name}</div>
                   <div className="credit-card-actions">
-                    <button className="action-btn" onClick={(e) => { e.stopPropagation(); deleteCard(c.id); }} title="Удалить">🗑</button>
+                    <button className="action-btn" onClick={(e) => { e.stopPropagation(); openForm(c); }} title="Изменить" aria-label="Изменить">✎</button>
+                    <button className="action-btn" onClick={(e) => { e.stopPropagation(); deleteCard(c.id, c.name); }} title="Удалить" aria-label="Удалить">🗑</button>
                   </div>
                 </div>
                 <div className="credit-card-limit">Лимит: {fmt(c.limit_amount)}</div>
@@ -152,8 +195,8 @@ export default function CreditCards({ toast }) {
                   <div className="credit-card-bar-fill" style={{ width: Math.min(usagePct, 100) + '%' }}></div>
                 </div>
                 <div className="credit-card-actions-row">
-                  <button className="btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); addPayment(c); }}>💳 Оплатить</button>
-                  <button className="btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); addPurchase(c); }}>➕ Покупка</button>
+                  <button className="btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); openTxnModal(c, 'payment'); }}>💳 Оплатить</button>
+                  <button className="btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); openTxnModal(c, 'purchase'); }}>➕ Покупка</button>
                 </div>
               </div>
             );
@@ -165,7 +208,7 @@ export default function CreditCards({ toast }) {
         <div className="panel" style={{ marginTop: 16 }}>
           <div className="panel-header">
             <span>История: {selected.name}</span>
-            <button className="action-btn" onClick={() => { setSelected(null); setTxns([]); }} title="Закрыть">✕</button>
+            <button className="action-btn" onClick={() => { setSelected(null); setTxns([]); }} title="Закрыть" aria-label="Закрыть">✕</button>
           </div>
           <div className="table-wrap">
             <table className="data-table">

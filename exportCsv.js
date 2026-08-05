@@ -16,7 +16,11 @@ const TABLES = {
 };
 
 function csvEscape(value) {
-  const s = value === null || value === undefined ? '' : String(value);
+  let s = value === null || value === undefined ? '' : String(value);
+  // Защита от formula injection: если значение начинается с =,+,-,@, Excel/Sheets
+  // может интерпретировать его как формулу при открытии файла. Ведущий апостроф
+  // помечает содержимое как текст и не влияет на визуальное отображение в таблицах.
+  if (/^[=+\-@]/.test(s)) s = "'" + s;
   if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
   return s;
 }

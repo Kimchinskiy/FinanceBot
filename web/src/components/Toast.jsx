@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 export function Toast({ message, color = '#34c759', onDone }) {
   const ref = useRef(null);
@@ -32,22 +32,3 @@ export function Toast({ message, color = '#34c759', onDone }) {
   );
 }
 
-export function useToast() {
-  const [toasts, setToasts] = useState([]);
-  const show = (msg, color) => {
-    const id = Date.now() + Math.random();
-    setToasts(t => [...t, { id, msg, color }]);
-  };
-  const remove = (id) => setToasts(t => t.filter(x => x.id !== id));
-  return {
-    toasts,
-    show,
-    ToastContainer: () => (
-      <>
-        {toasts.map(t => (
-          <Toast key={t.id} message={t.msg} color={t.color} onDone={() => remove(t.id)} />
-        ))}
-      </>
-    ),
-  };
-}

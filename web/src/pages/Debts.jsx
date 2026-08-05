@@ -2,17 +2,27 @@ import { useStore } from '../store.jsx';
 import { api } from '../api.js';
 import { fmt, fmtDate, debtDirectionLabel } from '../utils.js';
 
-export default function Debts({ onEdit, onDelete }) {
-  const { state, reload } = useStore();
+export default function Debts({ onEdit }) {
+  const { state, reload, toast, confirmAction } = useStore();
 
-  const handleDelete = async (id) => {
-    await api('DELETE', `/debts/${id}`);
-    await reload('debts');
-    onDelete();
+  const handleDelete = (id, person) => {
+    confirmAction(`Удалить долг «${person}»?`, async () => {
+      try {
+        await api('DELETE', `/debts/${id}`);
+        await reload('debts');
+        toast('Удалено');
+      } catch {
+        toast('Ошибка удаления', '#ff3b30');
+      }
+    });
   };
   const handleToggle = async (id) => {
-    await api('PATCH', `/debts/${id}/toggle`);
-    await reload('debts');
+    try {
+      await api('PATCH', `/debts/${id}/toggle`);
+      await reload('debts');
+    } catch {
+      toast('Ошибка', '#ff3b30');
+    }
   };
 
   const debts = state.debts || [];
@@ -26,8 +36,8 @@ export default function Debts({ onEdit, onDelete }) {
       <div className="dc-header">
         <div className="dc-person">{d.person}</div>
         <div className="mc-actions">
-          <button className="action-btn" onClick={() => onEdit(d)} title="Изменить">✎</button>
-          <button className="action-btn" onClick={() => handleDelete(d.id)} title="Удалить">🗑</button>
+          <button className="action-btn" onClick={() => onEdit(d)} title="Изменить" aria-label="Изменить">✎</button>
+          <button className="action-btn" onClick={() => handleDelete(d.id, d.person)} title="Удалить" aria-label="Удалить">🗑</button>
         </div>
       </div>
       <div className={`dc-amount ${d.direction}`}>{fmt(d.amount)}</div>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { StoreProvider, useStore } from './store.jsx';
 import { api } from './api.js';
 import { closeTg } from './telegram.js';
-import { useToast } from './components/Toast.jsx';
+import { Toast } from './components/Toast.jsx';
 import ConfirmDialog from './components/ConfirmDialog.jsx';
 import QuickAddModal from './components/QuickAddModal.jsx';
 import MandatoryModal from './components/MandatoryModal.jsx';
@@ -31,8 +31,7 @@ const TITLES = {
 };
 
 function AppInner() {
-  const { token, state, login, register, logout, startApp, reload, loginTelegram } = useStore();
-  const { toasts, show, ToastContainer } = useToast();
+  const { token, state, login, register, logout, startApp, reload, loginTelegram, toast, toasts, dismissToast, confirmState, resolveConfirm } = useStore();
   const [page, setPage] = useState('dashboard');
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickType, setQuickType] = useState('expense');
@@ -41,9 +40,6 @@ function AppInner() {
   const [mandEditing, setMandEditing] = useState(null);
   const [debtOpen, setDebtOpen] = useState(false);
   const [debtEditing, setDebtEditing] = useState(null);
-  const [confirm, setConfirm] = useState(null);
-
-  const toast = show;
 
   const openQuickAdd = (type) => { setQuickType(type); setQuickEdit(null); setQuickOpen(true); };
   const openQuickEdit = (item) => { setQuickEdit(item); setQuickOpen(true); };
@@ -87,8 +83,7 @@ function AppInner() {
         if (mode === 'register') await register(email, password);
         else await login(email, password);
       }}
-      onTelegram={async (user) => { await loginTelegram(user); }}
-      ToastContainer={ToastContainer} toast={toast} />;
+      onTelegram={async (user) => { await loginTelegram(user); }} />;
   }
 
   return (
@@ -123,20 +118,20 @@ function AppInner() {
         <header className="topbar">
           <div className="topbar-title">{TITLES[page]}</div>
           <div className="topbar-actions">
-            <button className="btn-close-tg" onClick={closeTg} title="Закрыть" style={{ display: 'none' }} id="close-tg-btn">✕</button>
+            <button className="btn-close-tg" onClick={closeTg} title="Закрыть" aria-label="Закрыть" style={{ display: 'none' }} id="close-tg-btn">✕</button>
           </div>
         </header>
 
         <div className="page active" key={page}>
           {page === 'dashboard' && <Dashboard />}
-          {page === 'operations' && <Operations toast={toast} onEdit={openQuickEdit} onDelete={() => toast('Удалено')} />}
-           {page === 'mandatory' && <Mandatory onEdit={openMandatory} onDelete={() => toast('Удалено')} />}
-           {page === 'creditcards' && <CreditCards toast={toast} />}
-           {page === 'assets' && <Assets toast={toast} />}
-           {page === 'debts' && <Debts onEdit={openDebt} onDelete={() => toast('Удалено')} />}
+          {page === 'operations' && <Operations onEdit={openQuickEdit} />}
+           {page === 'mandatory' && <Mandatory onEdit={openMandatory} />}
+           {page === 'creditcards' && <CreditCards />}
+           {page === 'assets' && <Assets />}
+           {page === 'debts' && <Debts onEdit={openDebt} />}
           {page === 'analytics' && <Analytics />}
-          {page === 'chat' && <ChatAI toast={toast} />}
-           {page === 'settings' && <Settings toast={toast} />}
+          {page === 'chat' && <ChatAI />}
+           {page === 'settings' && <Settings />}
         </div>
       </main>
 
@@ -170,11 +165,13 @@ function AppInner() {
         onSaved={() => reload('debts')}
         toast={toast} />
 
-      <ConfirmDialog open={!!confirm} text={confirm?.text}
-        onConfirm={() => { confirm?.cb(); setConfirm(null); }}
-        onCancel={() => setConfirm(null)} />
+      <ConfirmDialog open={!!confirmState} text={confirmState?.text}
+        onConfirm={() => resolveConfirm(true)}
+        onCancel={() => resolveConfirm(false)} />
 
-      <ToastContainer />
+      {toasts.map(t => (
+        <Toast key={t.id} message={t.msg} color={t.color} onDone={() => dismissToast(t.id)} />
+      ))}
     </>
   );
 }
@@ -194,7 +191,7 @@ const NAV_ITEMS = [
   { id: 'settings', label: 'Ещё' },
 ];
 
-function AuthScreen({ onAuth, onTelegram, toast }) {
+function AuthScreen({ onAuth, onTelegram }) {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

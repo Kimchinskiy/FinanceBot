@@ -54,7 +54,7 @@ export default function MandatoryModal({ open, editing, onClose, onSaved, toast 
       <div className="modal">
         <div className="modal-header">
           <h2>{editing ? 'Изменить платёж' : 'Обязательный платёж'}</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Закрыть">✕</button>
         </div>
         <div className="modal-body">
           <div className="form-group">

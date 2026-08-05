@@ -19,8 +19,8 @@ const GEMINI_MODEL_PRESETS = [
   'gemini-1.5-pro',
 ];
 
-export default function Settings({ toast }) {
-  const { state, update, reload, setQuotesConfig, user, linkTelegram, logout } = useStore();
+export default function Settings() {
+  const { state, update, reload, setQuotesConfig, user, linkTelegram, logout, toast, confirmAction } = useStore();
   const [cash, setCash] = useState(findAccountByName(state.accounts, 'Наличные')?.balance ?? '');
   const [card, setCard] = useState(findAccountByName(state.accounts, 'Карта')?.balance ?? '');
   const [salaryDay, setSalaryDay] = useState(state.salary.day || '');
@@ -146,21 +146,22 @@ export default function Settings({ toast }) {
     }
   };
 
-  const clearData = async () => {
-    if (!confirm('Удалить ВСЕ данные? Это действие нельзя отменить.')) return;
-    try {
-      for (const i of state.incomes) await api('DELETE', `/incomes/${i.id}`);
-      for (const e of state.expenses) await api('DELETE', `/expenses/${e.id}`);
-      for (const m of state.mandatory) await api('DELETE', `/mandatory/${m.id}`);
-      update({ salary: { day: null, amount: 0, period: 'monthly' } });
-      await api('PUT', '/settings/salary', { value: { day: null, amount: 0, period: 'monthly' } });
-      await api('PUT', '/settings/income_categories', { value: DEFAULT_INCOME_CATS });
-      await api('PUT', '/settings/expense_categories', { value: DEFAULT_EXPENSE_CATS });
-      await reload('incomes'); await reload('expenses'); await reload('mandatory');
-      toast('Данные очищены', '#ef4444');
-    } catch {
-      toast('Ошибка очистки', '#ef4444');
-    }
+  const clearData = () => {
+    confirmAction('Удалить ВСЕ данные? Это действие нельзя отменить.', async () => {
+      try {
+        for (const i of state.incomes) await api('DELETE', `/incomes/${i.id}`);
+        for (const e of state.expenses) await api('DELETE', `/expenses/${e.id}`);
+        for (const m of state.mandatory) await api('DELETE', `/mandatory/${m.id}`);
+        update({ salary: { day: null, amount: 0, period: 'monthly' } });
+        await api('PUT', '/settings/salary', { value: { day: null, amount: 0, period: 'monthly' } });
+        await api('PUT', '/settings/income_categories', { value: DEFAULT_INCOME_CATS });
+        await api('PUT', '/settings/expense_categories', { value: DEFAULT_EXPENSE_CATS });
+        await reload('incomes'); await reload('expenses'); await reload('mandatory');
+        toast('Данные очищены', '#ff3b30');
+      } catch {
+        toast('Ошибка очистки', '#ff3b30');
+      }
+    });
   };
 
   return (
@@ -198,7 +199,7 @@ export default function Settings({ toast }) {
         <div className="settings-form">
           <div className="category-chips">
             {state.incomeCategories.map(c => (
-              <div key={c} className="category-chip"><span>{c}</span><button className="chip-remove" onClick={() => removeCat('income', c)}>✕</button></div>
+              <div key={c} className="category-chip"><span>{c}</span><button className="chip-remove" onClick={() => removeCat('income', c)} aria-label={`Удалить категорию ${c}`}>✕</button></div>
             ))}
           </div>
           <div className="add-category-row">
@@ -213,7 +214,7 @@ export default function Settings({ toast }) {
         <div className="settings-form">
           <div className="category-chips">
             {state.expenseCategories.map(c => (
-              <div key={c} className="category-chip"><span>{c}</span><button className="chip-remove" onClick={() => removeCat('expense', c)}>✕</button></div>
+              <div key={c} className="category-chip"><span>{c}</span><button className="chip-remove" onClick={() => removeCat('expense', c)} aria-label={`Удалить категорию ${c}`}>✕</button></div>
             ))}
           </div>
           <div className="add-category-row">

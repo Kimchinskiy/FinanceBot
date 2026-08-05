@@ -4,8 +4,8 @@ import { api } from '../api.js';
 import { fmt, sumBalances, accountsByType, assetEmoji, fmtDateTime } from '../utils.js';
 import AssetModal from '../components/AssetModal.jsx';
 
-export default function Assets({ toast }) {
-  const { state, reload, quotesConfig } = useStore();
+export default function Assets() {
+  const { state, reload, quotesConfig, toast, confirmAction } = useStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState('deposit');
   const [editing, setEditing] = useState(null);
@@ -53,8 +53,11 @@ export default function Assets({ toast }) {
           <div className="asset-right">
             <div className="asset-value">{fmt(a.balance)}</div>
             <div className="asset-actions">
-              <button className="action-btn" onClick={() => openEdit(a)} title="Изменить">✎</button>
-              <button className="action-btn" onClick={async () => { await api('DELETE', `/accounts/${a.id}`); await reload('accounts'); toast('Удалено'); }} title="Удалить">🗑</button>
+              <button className="action-btn" onClick={() => openEdit(a)} title="Изменить" aria-label="Изменить">✎</button>
+              <button className="action-btn" onClick={() => confirmAction(`Удалить «${a.name}»?`, async () => {
+                try { await api('DELETE', `/accounts/${a.id}`); await reload('accounts'); toast('Удалено'); }
+                catch { toast('Ошибка удаления', '#ff3b30'); }
+              })} title="Удалить" aria-label="Удалить">🗑</button>
             </div>
           </div>
         </div>

@@ -90,7 +90,7 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
       <div className="modal">
         <div className="modal-header">
           <h2>{isEdit ? 'Изменить операцию' : 'Добавить операцию'}</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Закрыть">✕</button>
         </div>
         <div className="modal-body">
           <div className="modal-tabs" id="modal-tabs">

@@ -2,17 +2,27 @@ import { useStore } from '../store.jsx';
 import { api } from '../api.js';
 import { fmt, typeLabel } from '../utils.js';
 
-export default function Mandatory({ onEdit, onDelete }) {
-  const { state, reload } = useStore();
+export default function Mandatory({ onEdit }) {
+  const { state, reload, toast, confirmAction } = useStore();
 
-  const handleDelete = async (id) => {
-    await api('DELETE', `/mandatory/${id}`);
-    await reload('mandatory');
-    onDelete();
+  const handleDelete = (id, name) => {
+    confirmAction(`Удалить обязательный платёж «${name}»?`, async () => {
+      try {
+        await api('DELETE', `/mandatory/${id}`);
+        await reload('mandatory');
+        toast('Удалено');
+      } catch {
+        toast('Ошибка удаления', '#ff3b30');
+      }
+    });
   };
   const handleToggle = async (id) => {
-    await api('PATCH', `/mandatory/${id}/toggle`);
-    await reload('mandatory');
+    try {
+      await api('PATCH', `/mandatory/${id}/toggle`);
+      await reload('mandatory');
+    } catch {
+      toast('Ошибка', '#ff3b30');
+    }
   };
 
   return (
@@ -28,8 +38,8 @@ export default function Mandatory({ onEdit, onDelete }) {
             <div className="mc-header">
               <div className="mc-name">{m.name}</div>
               <div className="mc-actions">
-                <button className="action-btn" onClick={() => onEdit(m)} title="Изменить">✎</button>
-                <button className="action-btn" onClick={() => handleDelete(m.id)} title="Удалить">🗑</button>
+                <button className="action-btn" onClick={() => onEdit(m)} title="Изменить" aria-label="Изменить">✎</button>
+                <button className="action-btn" onClick={() => handleDelete(m.id, m.name)} title="Удалить" aria-label="Удалить">🗑</button>
               </div>
             </div>
             <div className="mc-amount">{fmt(m.amount)}</div>

@@ -14,6 +14,7 @@ const exportRouter = require('./exportCsv');
 const { router: quotesRouter } = require('./quotes');
 const { runMigration } = require('./migrate');
 const { currentMonthVladivostok, nowVladivostokIso } = require('./timezone');
+const { withUserLock } = require('./lock');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,8 +23,27 @@ const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
 // Делаем db-обёртку доступной в роутах через req.app.locals
 app.locals.db = { query };
 
-app.use(cors());
+// Разрешаем CORS только с адреса самого приложения — фронтенд всё равно
+// раздаётся с того же origin, так что это не ломает штатную работу, но не
+// позволяет постороннему сайту дёргать API из браузера с чужим origin.
+const allowedOrigin = APP_URL.replace(/\/$/, '');
+app.use(cors({
+  origin: (origin, cb) => cb(null, !origin || origin === allowedOrigin),
+}));
 app.use(express.json());
+
+function parseAmount(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// Первый зарегистрированный реальный пользователь считается администратором
+// инстанса — только ему можно менять общий AI-ключ/провайдера/модель,
+// иначе любой зарегистрировавшийся смог бы подменить их всем остальным.
+async function isAdmin(userId) {
+  const r = await query("SELECT id FROM users WHERE id != 'system' ORDER BY created_at ASC LIMIT 1");
+  return r.rows[0]?.id === userId;
+}
 
 // Статика собранного React-фронта (Vite), если собран
 const WEB_DIST = path.join(__dirname, 'web', 'dist');
@@ -80,7 +100,11 @@ app.put('/api/settings/:key', authRequired, async (req, res) => {
   try {
     const { key } = req.params;
     const { value } = req.body;
-    const uid = AI_SYSTEM_SETTING_KEYS.includes(key) ? 'system' : req.userId;
+    const isSystemKey = AI_SYSTEM_SETTING_KEYS.includes(key);
+    if (isSystemKey && !(await isAdmin(req.userId))) {
+      return res.status(403).json({ error: 'Только администратор может менять AI-настройки' });
+    }
+    const uid = isSystemKey ? 'system' : req.userId;
     await query(
       `INSERT OR REPLACE INTO settings (user_id, key, value, updated_at)
        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
@@ -112,12 +136,14 @@ app.get('/api/incomes', authRequired, async (req, res) => {
 
 app.post('/api/incomes', authRequired, async (req, res) => {
   try {
-    const { amount, category, description, datetime, source } = req.body;
+    const { category, description, datetime, source } = req.body;
+    const amt = parseAmount(req.body.amount);
+    if (amt === null) return res.status(400).json({ error: 'Некорректная сумма' });
     const src = source || 'Карта';
     const id = uid();
     await query(
       'INSERT INTO incomes (id, user_id, amount, category, description, datetime, source) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, req.userId, amount, category, description || '', datetime || new Date().toISOString(), src]
+      [id, req.userId, amt, category, description || '', datetime || new Date().toISOString(), src]
     );
     // Пополняем счёт, соответствующий источнику (по имени), иначе — первый счёт пользователя
     await query(
@@ -125,7 +151,7 @@ app.post('/api/incomes', authRequired, async (req, res) => {
          SELECT id FROM accounts WHERE user_id = ?
          ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
        )`,
-      [amount, req.userId, src]
+      [amt, req.userId, src]
     );
     res.json({ id });
   } catch (err) {
@@ -135,38 +161,41 @@ app.post('/api/incomes', authRequired, async (req, res) => {
 
 app.put('/api/incomes/:id', authRequired, async (req, res) => {
   try {
-    const old = await query('SELECT * FROM incomes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
-    if (!old.rows[0]) return res.status(404).json({ error: 'Не найдено' });
-    const oldRow = old.rows[0];
-    const { amount, category, description, datetime, source } = req.body;
-    const src = source || 'Карта';
-    const amt = Number(amount);
+    await withUserLock(req.userId, async () => {
+      const old = await query('SELECT * FROM incomes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+      if (!old.rows[0]) return res.status(404).json({ error: 'Не найдено' });
+      const oldRow = old.rows[0];
+      const { category, description, datetime, source } = req.body;
+      const amt = parseAmount(req.body.amount);
+      if (amt === null) return res.status(400).json({ error: 'Некорректная сумма' });
+      const src = source || 'Карта';
 
-    await query(
-      `UPDATE incomes SET amount = ?, category = ?, description = ?, datetime = ?, source = ?
-       WHERE id = ? AND user_id = ?`,
-      [amt, category, description || '', datetime || oldRow.datetime, src, req.params.id, req.userId]
-    );
+      await query(
+        `UPDATE incomes SET amount = ?, category = ?, description = ?, datetime = ?, source = ?
+         WHERE id = ? AND user_id = ?`,
+        [amt, category, description || '', datetime || oldRow.datetime, src, req.params.id, req.userId]
+      );
 
-    // Пересчитываем баланс: возвращаем старую сумму, списываем новую
-    if (Number(oldRow.amount) !== amt || (oldRow.source || 'Карта') !== src) {
-      const oldSrc = oldRow.source || 'Карта';
-      await query(
-        `UPDATE accounts SET balance = balance - ? WHERE id = (
-           SELECT id FROM accounts WHERE user_id = ?
-           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
-         )`,
-        [Number(oldRow.amount), req.userId, oldSrc]
-      );
-      await query(
-        `UPDATE accounts SET balance = balance + ? WHERE id = (
-           SELECT id FROM accounts WHERE user_id = ?
-           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
-         )`,
-        [amt, req.userId, src]
-      );
-    }
-    res.json({ ok: true });
+      // Пересчитываем баланс: возвращаем старую сумму, списываем новую
+      if (Number(oldRow.amount) !== amt || (oldRow.source || 'Карта') !== src) {
+        const oldSrc = oldRow.source || 'Карта';
+        await query(
+          `UPDATE accounts SET balance = balance - ? WHERE id = (
+             SELECT id FROM accounts WHERE user_id = ?
+             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+           )`,
+          [Number(oldRow.amount), req.userId, oldSrc]
+        );
+        await query(
+          `UPDATE accounts SET balance = balance + ? WHERE id = (
+             SELECT id FROM accounts WHERE user_id = ?
+             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+           )`,
+          [amt, req.userId, src]
+        );
+      }
+      res.json({ ok: true });
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -174,19 +203,21 @@ app.put('/api/incomes/:id', authRequired, async (req, res) => {
 
 app.delete('/api/incomes/:id', authRequired, async (req, res) => {
   try {
-    const r = await query('SELECT amount, source FROM incomes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
-    if (r.rows[0]) {
-      const src = r.rows[0].source || 'Карта';
-      await query(
-        `UPDATE accounts SET balance = balance - ? WHERE id = (
-           SELECT id FROM accounts WHERE user_id = ?
-           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
-         )`,
-        [r.rows[0].amount, req.userId, src]
-      );
-    }
-    await query('DELETE FROM incomes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
-    res.json({ ok: true });
+    await withUserLock(req.userId, async () => {
+      const r = await query('SELECT amount, source FROM incomes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+      if (r.rows[0]) {
+        const src = r.rows[0].source || 'Карта';
+        await query(
+          `UPDATE accounts SET balance = balance - ? WHERE id = (
+             SELECT id FROM accounts WHERE user_id = ?
+             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+           )`,
+          [r.rows[0].amount, req.userId, src]
+        );
+      }
+      await query('DELETE FROM incomes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+      res.json({ ok: true });
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -212,12 +243,14 @@ app.get('/api/expenses', authRequired, async (req, res) => {
 
 app.post('/api/expenses', authRequired, async (req, res) => {
   try {
-    const { amount, category, description, datetime, source } = req.body;
+    const { category, description, datetime, source } = req.body;
+    const amt = parseAmount(req.body.amount);
+    if (amt === null) return res.status(400).json({ error: 'Некорректная сумма' });
     const src = source || 'Карта';
     const id = uid();
     await query(
       'INSERT INTO expenses (id, user_id, amount, category, description, datetime, source) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, req.userId, amount, category, description || '', datetime || new Date().toISOString(), src]
+      [id, req.userId, amt, category, description || '', datetime || new Date().toISOString(), src]
     );
     // Списываем со счёта, соответствующего источнику (по имени), иначе — с первого счёта
     await query(
@@ -225,7 +258,7 @@ app.post('/api/expenses', authRequired, async (req, res) => {
          SELECT id FROM accounts WHERE user_id = ?
          ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
        )`,
-      [amount, req.userId, src]
+      [amt, req.userId, src]
     );
     res.json({ id });
   } catch (err) {
@@ -235,38 +268,41 @@ app.post('/api/expenses', authRequired, async (req, res) => {
 
 app.put('/api/expenses/:id', authRequired, async (req, res) => {
   try {
-    const old = await query('SELECT * FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
-    if (!old.rows[0]) return res.status(404).json({ error: 'Не найдено' });
-    const oldRow = old.rows[0];
-    const { amount, category, description, datetime, source } = req.body;
-    const src = source || 'Карта';
-    const amt = Number(amount);
+    await withUserLock(req.userId, async () => {
+      const old = await query('SELECT * FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+      if (!old.rows[0]) return res.status(404).json({ error: 'Не найдено' });
+      const oldRow = old.rows[0];
+      const { category, description, datetime, source } = req.body;
+      const amt = parseAmount(req.body.amount);
+      if (amt === null) return res.status(400).json({ error: 'Некорректная сумма' });
+      const src = source || 'Карта';
 
-    await query(
-      `UPDATE expenses SET amount = ?, category = ?, description = ?, datetime = ?, source = ?
-       WHERE id = ? AND user_id = ?`,
-      [amt, category, description || '', datetime || oldRow.datetime, src, req.params.id, req.userId]
-    );
+      await query(
+        `UPDATE expenses SET amount = ?, category = ?, description = ?, datetime = ?, source = ?
+         WHERE id = ? AND user_id = ?`,
+        [amt, category, description || '', datetime || oldRow.datetime, src, req.params.id, req.userId]
+      );
 
-    // Пересчитываем баланс: возвращаем старую сумму, добавляем новую
-    if (Number(oldRow.amount) !== amt || (oldRow.source || 'Карта') !== src) {
-      const oldSrc = oldRow.source || 'Карта';
-      await query(
-        `UPDATE accounts SET balance = balance + ? WHERE id = (
-           SELECT id FROM accounts WHERE user_id = ?
-           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
-         )`,
-        [Number(oldRow.amount), req.userId, oldSrc]
-      );
-      await query(
-        `UPDATE accounts SET balance = balance - ? WHERE id = (
-           SELECT id FROM accounts WHERE user_id = ?
-           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
-         )`,
-        [amt, req.userId, src]
-      );
-    }
-    res.json({ ok: true });
+      // Пересчитываем баланс: возвращаем старую сумму, добавляем новую
+      if (Number(oldRow.amount) !== amt || (oldRow.source || 'Карта') !== src) {
+        const oldSrc = oldRow.source || 'Карта';
+        await query(
+          `UPDATE accounts SET balance = balance + ? WHERE id = (
+             SELECT id FROM accounts WHERE user_id = ?
+             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+           )`,
+          [Number(oldRow.amount), req.userId, oldSrc]
+        );
+        await query(
+          `UPDATE accounts SET balance = balance - ? WHERE id = (
+             SELECT id FROM accounts WHERE user_id = ?
+             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+           )`,
+          [amt, req.userId, src]
+        );
+      }
+      res.json({ ok: true });
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -274,19 +310,21 @@ app.put('/api/expenses/:id', authRequired, async (req, res) => {
 
 app.delete('/api/expenses/:id', authRequired, async (req, res) => {
   try {
-    const r = await query('SELECT amount, source FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
-    if (r.rows[0]) {
-      const src = r.rows[0].source || 'Карта';
-      await query(
-        `UPDATE accounts SET balance = balance + ? WHERE id = (
-           SELECT id FROM accounts WHERE user_id = ?
-           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
-         )`,
-        [r.rows[0].amount, req.userId, src]
-      );
-    }
-    await query('DELETE FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
-    res.json({ ok: true });
+    await withUserLock(req.userId, async () => {
+      const r = await query('SELECT amount, source FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+      if (r.rows[0]) {
+        const src = r.rows[0].source || 'Карта';
+        await query(
+          `UPDATE accounts SET balance = balance + ? WHERE id = (
+             SELECT id FROM accounts WHERE user_id = ?
+             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+           )`,
+          [r.rows[0].amount, req.userId, src]
+        );
+      }
+      await query('DELETE FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+      res.json({ ok: true });
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -320,12 +358,14 @@ app.get('/api/mandatory', authRequired, async (req, res) => {
 
 app.post('/api/mandatory', authRequired, async (req, res) => {
   try {
-    const { name, amount, category, day, type, status, source } = req.body;
+    const { name, category, day, type, status, source } = req.body;
+    const amt = parseAmount(req.body.amount);
+    if (amt === null) return res.status(400).json({ error: 'Некорректная сумма' });
     const src = source || 'Карта';
     const id = uid();
     await query(
       'INSERT INTO mandatory_payments (id, user_id, name, amount, category, day, type, status, source, status_updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, req.userId, name, amount, category, day || null, type || 'monthly', status || 'pending', src, nowVladivostokIso()]
+      [id, req.userId, name, amt, category, day || null, type || 'monthly', status || 'pending', src, nowVladivostokIso()]
     );
     res.json({ id });
   } catch (err) {
@@ -335,12 +375,14 @@ app.post('/api/mandatory', authRequired, async (req, res) => {
 
 app.put('/api/mandatory/:id', authRequired, async (req, res) => {
   try {
-    const { name, amount, category, day, type, status, source } = req.body;
+    const { name, category, day, type, status, source } = req.body;
+    const amt = parseAmount(req.body.amount);
+    if (amt === null) return res.status(400).json({ error: 'Некорректная сумма' });
     const src = source || 'Карта';
     await query(
       `UPDATE mandatory_payments SET name = ?, amount = ?, category = ?, day = ?, type = ?, status = ?, source = ?, status_updated_at = ?
        WHERE id = ? AND user_id = ?`,
-      [name, amount, category, day || null, type, status, src, nowVladivostokIso(), req.params.id, req.userId]
+      [name, amt, category, day || null, type, status, src, nowVladivostokIso(), req.params.id, req.userId]
     );
     res.json({ ok: true });
   } catch (err) {
@@ -359,38 +401,40 @@ app.delete('/api/mandatory/:id', authRequired, async (req, res) => {
 
 app.patch('/api/mandatory/:id/toggle', authRequired, async (req, res) => {
   try {
-    await resetStaleMandatory(req.userId);
-    const row = await query('SELECT amount, status, source FROM mandatory_payments WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
-    if (!row.rows[0]) return res.status(404).json({ error: 'Не найдено' });
-    const wasPaid = row.rows[0].status === 'paid';
-    const src = row.rows[0].source || 'Карта';
+    await withUserLock(req.userId, async () => {
+      await resetStaleMandatory(req.userId);
+      const row = await query('SELECT amount, status, source FROM mandatory_payments WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+      if (!row.rows[0]) return res.status(404).json({ error: 'Не найдено' });
+      const wasPaid = row.rows[0].status === 'paid';
+      const src = row.rows[0].source || 'Карта';
 
-    await query(
-      `UPDATE mandatory_payments SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END,
-       status_updated_at = ?
-       WHERE id = ? AND user_id = ?`,
-      [nowVladivostokIso(), req.params.id, req.userId]
-    );
+      await query(
+        `UPDATE mandatory_payments SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END,
+         status_updated_at = ?
+         WHERE id = ? AND user_id = ?`,
+        [nowVladivostokIso(), req.params.id, req.userId]
+      );
 
-    const amt = Number(row.rows[0].amount);
-    if (wasPaid) {
-      await query(
-        `UPDATE accounts SET balance = balance + ? WHERE id = (
-           SELECT id FROM accounts WHERE user_id = ?
-           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
-         )`,
-        [amt, req.userId, src]
-      );
-    } else {
-      await query(
-        `UPDATE accounts SET balance = balance - ? WHERE id = (
-           SELECT id FROM accounts WHERE user_id = ?
-           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
-         )`,
-        [amt, req.userId, src]
-      );
-    }
-    res.json({ ok: true });
+      const amt = Number(row.rows[0].amount);
+      if (wasPaid) {
+        await query(
+          `UPDATE accounts SET balance = balance + ? WHERE id = (
+             SELECT id FROM accounts WHERE user_id = ?
+             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+           )`,
+          [amt, req.userId, src]
+        );
+      } else {
+        await query(
+          `UPDATE accounts SET balance = balance - ? WHERE id = (
+             SELECT id FROM accounts WHERE user_id = ?
+             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+           )`,
+          [amt, req.userId, src]
+        );
+      }
+      res.json({ ok: true });
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -408,12 +452,14 @@ app.get('/api/debts', authRequired, async (req, res) => {
 
 app.post('/api/debts', authRequired, async (req, res) => {
   try {
-    const { person, amount, note, direction, status, due_date, source } = req.body;
+    const { person, note, direction, status, due_date, source } = req.body;
+    const amt = parseAmount(req.body.amount);
+    if (amt === null) return res.status(400).json({ error: 'Некорректная сумма' });
     const src = source || 'Карта';
     const id = uid();
     await query(
       'INSERT INTO debts (id, user_id, person, amount, note, direction, status, due_date, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, req.userId, person, amount, note || '', direction || 'i_owe', status || 'pending', due_date || null, src]
+      [id, req.userId, person, amt, note || '', direction || 'i_owe', status || 'pending', due_date || null, src]
     );
     res.json({ id });
   } catch (err) {
@@ -423,12 +469,14 @@ app.post('/api/debts', authRequired, async (req, res) => {
 
 app.put('/api/debts/:id', authRequired, async (req, res) => {
   try {
-    const { person, amount, note, direction, status, due_date, source } = req.body;
+    const { person, note, direction, status, due_date, source } = req.body;
+    const amt = parseAmount(req.body.amount);
+    if (amt === null) return res.status(400).json({ error: 'Некорректная сумма' });
     const src = source || 'Карта';
     await query(
       `UPDATE debts SET person = ?, amount = ?, note = ?, direction = ?, status = ?, due_date = ?, source = ?
        WHERE id = ? AND user_id = ?`,
-      [person, amount, note || '', direction, status, due_date || null, src, req.params.id, req.userId]
+      [person, amt, note || '', direction, status, due_date || null, src, req.params.id, req.userId]
     );
     res.json({ ok: true });
   } catch (err) {
@@ -447,41 +495,43 @@ app.delete('/api/debts/:id', authRequired, async (req, res) => {
 
 app.patch('/api/debts/:id/toggle', authRequired, async (req, res) => {
   try {
-    const row = await query('SELECT amount, status, direction, source FROM debts WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
-    if (!row.rows[0]) return res.status(404).json({ error: 'Не найдено' });
-    const wasPaid = row.rows[0].status === 'paid';
-    const direction = row.rows[0].direction;
-    const src = row.rows[0].source || 'Карта';
+    await withUserLock(req.userId, async () => {
+      const row = await query('SELECT amount, status, direction, source FROM debts WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+      if (!row.rows[0]) return res.status(404).json({ error: 'Не найдено' });
+      const wasPaid = row.rows[0].status === 'paid';
+      const direction = row.rows[0].direction;
+      const src = row.rows[0].source || 'Карта';
 
-    await query(
-      `UPDATE debts SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END
-       WHERE id = ? AND user_id = ?`,
-      [req.params.id, req.userId]
-    );
+      await query(
+        `UPDATE debts SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END
+         WHERE id = ? AND user_id = ?`,
+        [req.params.id, req.userId]
+      );
 
-    const amt = Number(row.rows[0].amount);
-    if (direction === 'i_owe') {
-      if (wasPaid) {
-        // Возврат отметки → деньги возвращаются на счёт
-        await query(
-          `UPDATE accounts SET balance = balance + ? WHERE id = (
-             SELECT id FROM accounts WHERE user_id = ?
-             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
-           )`,
-          [amt, req.userId, src]
-        );
-      } else {
-        // Отмечаем оплаченным → списываем со счёта
-        await query(
-          `UPDATE accounts SET balance = balance - ? WHERE id = (
-             SELECT id FROM accounts WHERE user_id = ?
-             ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
-           )`,
-          [amt, req.userId, src]
-        );
+      const amt = Number(row.rows[0].amount);
+      if (direction === 'i_owe') {
+        if (wasPaid) {
+          // Возврат отметки → деньги возвращаются на счёт
+          await query(
+            `UPDATE accounts SET balance = balance + ? WHERE id = (
+               SELECT id FROM accounts WHERE user_id = ?
+               ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+             )`,
+            [amt, req.userId, src]
+          );
+        } else {
+          // Отмечаем оплаченным → списываем со счёта
+          await query(
+            `UPDATE accounts SET balance = balance - ? WHERE id = (
+               SELECT id FROM accounts WHERE user_id = ?
+               ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
+             )`,
+            [amt, req.userId, src]
+          );
+        }
       }
-    }
-    res.json({ ok: true });
+      res.json({ ok: true });
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

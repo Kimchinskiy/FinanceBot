@@ -70,7 +70,7 @@ function ChatMessage({ message }) {
   );
 }
 
-export default function ChatAI({ toast }) {
+export default function ChatAI() {
   const { state, update } = useStore();
   const messages = state.chatMessages;
   const setMessages = (updater) => update({ chatMessages: typeof updater === 'function' ? updater(messages) : updater });

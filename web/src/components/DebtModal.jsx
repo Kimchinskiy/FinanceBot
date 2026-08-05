@@ -55,7 +55,7 @@ export default function DebtModal({ open, editing, onClose, onSaved, toast }) {
       <div className="modal">
         <div className="modal-header">
           <h2>{editing ? 'Изменить долг' : 'Новый долг'}</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Закрыть">✕</button>
         </div>
         <div className="modal-body">
           <div className="form-group">

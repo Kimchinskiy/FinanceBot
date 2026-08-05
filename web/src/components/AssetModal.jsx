@@ -162,7 +162,7 @@ export default function AssetModal({ open, type, editing, onClose, onSaved, toas
       <div className="modal">
         <div className="modal-header">
           <h2>{editing ? 'Изменить актив' : 'Добавить актив'}</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Закрыть">✕</button>
         </div>
         <div className="modal-body">
           <div className="form-group">

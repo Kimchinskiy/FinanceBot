@@ -6,7 +6,20 @@
 // ===================================================================
 const { Telegraf, Markup } = require('telegraf');
 const { upsertUserByTg, signToken } = require('./auth');
-const { currentMonthVladivostok, currentDayVladivostok } = require('./timezone');
+const { currentMonthVladivostok, nowVladivostok } = require('./timezone');
+
+// Дней до ближайшего наступления дня месяца `day` (с учётом перехода через
+// границу месяца — например, "3 число" при сегодняшнем "30 число" это +3 дня,
+// а не отрицательное число, как при наивном вычитании).
+function daysUntilDayOfMonth(day) {
+  const now = nowVladivostok();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const todayStart = Date.UTC(y, m, now.getUTCDate());
+  let target = Date.UTC(y, m, day);
+  if (target < todayStart) target = Date.UTC(y, m + 1, day);
+  return Math.round((target - todayStart) / 86400000);
+}
 
 let bot = null;
 let query = null;
@@ -176,16 +189,13 @@ async function sendReminders() {
       if (!tk) continue;
       try {
         const mand = await apiRemind(`/api/mandatory`, tk);
-        const today = currentDayVladivostok();
         const due = mand.filter(m => m.status !== 'paid' && m.day != null)
-          .filter(m => {
-            const diff = m.day - today;
-            return diff >= 0 && diff <= REMIND_BEFORE_DAYS;
-          });
+          .map(m => ({ ...m, daysLeft: daysUntilDayOfMonth(m.day) }))
+          .filter(m => m.daysLeft >= 0 && m.daysLeft <= REMIND_BEFORE_DAYS);
         if (due.length) {
           const rub = (n) => (Number(n) || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' ₽';
           const text = due.map(m =>
-            `• ${m.name}: *${rub(m.amount)}* — ${m.day} числа (через ${m.day - today} ${plural(m.day - today)})`
+            `• ${m.name}: *${rub(m.amount)}* — ${m.day} числа (через ${m.daysLeft} ${plural(m.daysLeft)})`
           ).join('\n');
           await bot.telegram.sendMessage(chatId, '🔔 *Скоро списание:*', { parse_mode: 'Markdown' });
           await bot.telegram.sendMessage(chatId, text, { parse_mode: 'Markdown' });
