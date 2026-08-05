@@ -1110,8 +1110,9 @@ body {
   .nav-ico { display: block; font-size: 22px; line-height: 1; }
   .nav-txt { font-size: 10px; font-weight: 500; letter-spacing: -0.02em; white-space: nowrap; }
 
-  /* Space for bottom bar + FAB (FAB sits above the tab bar) */
-  body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  /* Space for bottom bar + both FABs (+ chat FAB sit above the tab bar) so page
+     content can scroll fully clear of them instead of hiding behind the buttons */
+  body { padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
   .fab { display: flex; align-items: center; justify-content: center; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
 
   /* ── Header ── */
