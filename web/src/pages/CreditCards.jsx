@@ -137,10 +137,9 @@ export default function CreditCards({ toast }) {
       ) : (
         <div className="credit-cards-list">
           {cards.map(c => {
-            const available = Math.max(0, c.limit_amount - c.balance);
             const usagePct = c.limit_amount > 0 ? Math.round((c.balance / c.limit_amount) * 100) : 0;
             return (
-              <div key={c.id} className={`credit-card ${selected?.id === c.id ? 'selected' : ''}`} onClick={() => showTransactions(c)}>
+              <div key={c.id} className={`credit-card ${selected?.id === c.id ? 'selected' : ''} ${c.balance <= 0 ? 'paid-card' : ''}`} onClick={() => showTransactions(c)}>
                 <div className="credit-card-header">
                   <div className="credit-card-name">{c.name}</div>
                   <div className="credit-card-actions">
@@ -148,14 +147,13 @@ export default function CreditCards({ toast }) {
                   </div>
                 </div>
                 <div className="credit-card-limit">Лимит: {fmt(c.limit_amount)}</div>
-                <div className="credit-card-balance">Задолженность: <strong>{fmt(c.balance)}</strong></div>
-                <div className="credit-card-available">Доступно: <span className={available > 0 ? '' : 'text-danger'}>{fmt(available)}</span></div>
+                <div className="credit-card-balance">{c.balance > 0 ? fmt(c.balance) : 'Погашена'}</div>
                 <div className="credit-card-bar-bg">
                   <div className="credit-card-bar-fill" style={{ width: Math.min(usagePct, 100) + '%' }}></div>
                 </div>
                 <div className="credit-card-actions-row">
+                  <button className="btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); addPayment(c); }}>💳 Оплатить</button>
                   <button className="btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); addPurchase(c); }}>➕ Покупка</button>
-                  <button className="btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); addPayment(c); }}>💳 Оплатить</button>
                 </div>
               </div>
             );

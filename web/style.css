@@ -1210,7 +1210,7 @@ body {
   .nav-ico { display: none; }
 }
 
-/* ===== CREDIT CARDS ===== */
+/* ===== CREDIT CARDS (визуально в стиле "Долги" — это задолженность, не актив) ===== */
 .credit-cards-list {
   display: flex;
   flex-direction: column;
@@ -1219,13 +1219,15 @@ body {
 .credit-card {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: 18px;
+  padding: 16px 18px;
   cursor: pointer;
   transition: all var(--trans);
 }
-.credit-card:hover { border-color: var(--primary); }
-.credit-card.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-alpha, rgba(0,113,227,0.15)); }
+.credit-card:hover { border-color: var(--red); }
+.credit-card.paid-card { opacity: 0.55; }
+.credit-card.paid-card .credit-card-balance { color: var(--green); }
+.credit-card.selected { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-dim); }
 .credit-card-header {
   display: flex;
   justify-content: space-between;
@@ -1234,9 +1236,7 @@ body {
 }
 .credit-card-name { font-weight: 600; font-size: 16px; }
 .credit-card-limit { font-size: 13px; color: var(--text-secondary); }
-.credit-card-balance { font-size: 15px; margin: 4px 0; }
-.credit-card-available { font-size: 13px; }
-.credit-card-available .text-danger { color: #ff3b30; }
+.credit-card-balance { font-size: 22px; font-weight: 700; margin: 4px 0 12px; color: var(--red); }
 .credit-card-bar-bg {
   height: 6px;
   background: var(--bg-surface);
@@ -1246,7 +1246,7 @@ body {
 }
 .credit-card-bar-fill {
   height: 100%;
-  background: var(--primary);
+  background: var(--red);
   border-radius: 3px;
   transition: width 0.3s;
 }
@@ -1255,6 +1255,8 @@ body {
   gap: 8px;
   margin-top: 8px;
 }
+.credit-card-actions-row .btn-primary { background: var(--green); }
+.credit-card-actions-row .btn-primary:hover { filter: brightness(1.05); }
 .btn-sm { padding: 6px 12px; font-size: 12px; }
 
 /* ===== CHAT / MESSAGE COMPONENTS ===== */
