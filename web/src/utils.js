@@ -27,8 +27,8 @@ export const INVEST_TYPES = ['deposit', 'crypto', 'broker'];
 
 export function fmt(n, sign = false) {
   const abs = Math.abs(Number(n)).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
-  if (sign) return (n >= 0 ? '+' : '−') + abs + ' ₽';
-  return abs + ' ₽';
+  if (sign) return (n >= 0 ? '+' : '−') + abs + ' ₽';
+  return abs + ' ₽';
 }
 
 // timeZone:'UTC' здесь намеренно — dt уже приведён к Date, чьи UTC-геттеры
