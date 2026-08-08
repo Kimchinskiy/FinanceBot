@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api, getToken, setSession, clearToken } from './api.js';
 import { DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS } from './utils.js';
+import { setThemeMode } from './theme.js';
 
 const StoreContext = createContext(null);
 
@@ -52,6 +53,10 @@ export function StoreProvider({ children }) {
         api('GET', '/settings'),
         api('GET', '/accounts'),
       ]);
+      if (settings.theme_mode) {
+        const mode = typeof settings.theme_mode === 'string' ? JSON.parse(settings.theme_mode) : settings.theme_mode;
+        if (mode) setThemeMode(mode);
+      }
       setState(prev => ({
         ...prev,
         incomes,
@@ -98,16 +103,16 @@ export function StoreProvider({ children }) {
     setLoading(false);
   }, [loadAll, refreshQuotesConfig]);
 
-  const login = useCallback(async (email, password) => {
-    const res = await api('POST', '/auth/login', { email, password });
+  const login = useCallback(async (identifier, password) => {
+    const res = await api('POST', '/auth/login', { identifier, password });
     setSession(res.token, res.user);
     setTokenState(res.token);
     setUserState(res.user);
     return res;
   }, []);
 
-  const register = useCallback(async (email, password) => {
-    const res = await api('POST', '/auth/register', { email, password });
+  const register = useCallback(async (email, password, username) => {
+    const res = await api('POST', '/auth/register', { email, password, username });
     setSession(res.token, res.user);
     setTokenState(res.token);
     setUserState(res.user);

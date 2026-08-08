@@ -5,7 +5,7 @@
 
 :root {
   /* Surfaces */
-  --bg-base: #f5f5f7;
+  --bg-base: #e9ebee;
   --bg-surface: #ffffff;
   --bg-elevated: #f5f5f7;
   --bg-hover: #ececee;
@@ -49,15 +49,31 @@
 
   --trans: 0.25s cubic-bezier(0.4,0,0.2,1);
 
-  /* Navbar (dark glow, scoped to navbar only) */
+  /* Navbar (нейтральная тёмная стеклянная панель, без акцентного цвета) */
   --navbar-bg: rgba(20, 14, 28, 0.72);
-  --navbar-border: rgba(175,82,222,0.28);
-  --navbar-glow: rgba(175,82,222,0.45);
+  --navbar-border: rgba(255,255,255,0.12);
   --navbar-text: rgba(255,255,255,0.72);
   --navbar-text-active: #ffffff;
-  --navbar-pill-active-bg: linear-gradient(135deg, #af52de, #7c3aed);
   --navbar-cta-bg: #ffffff;
   --navbar-cta-text: #14101c;
+}
+
+:root[data-theme="dark"] {
+  --bg-base: #101014;
+  --bg-surface: #1c1c22;
+  --bg-elevated: #201f26;
+  --bg-hover: #2a2a33;
+
+  --border: rgba(255,255,255,0.10);
+  --border-bright: rgba(255,255,255,0.18);
+
+  --text-primary: #f5f5f7;
+  --text-secondary: #a1a1a8;
+  --text-muted: #7d7d85;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.45);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.55);
 }
 
 html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
@@ -111,7 +127,6 @@ body {
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border: 1px solid var(--navbar-border);
-  box-shadow: 0 0 40px var(--navbar-glow), 0 4px 24px rgba(0,0,0,0.35);
 }
 .navbar-logo {
   display: flex;
@@ -121,8 +136,7 @@ body {
   margin-right: 12px;
 }
 .navbar-logo .logo-icon {
-  background: var(--navbar-pill-active-bg);
-  box-shadow: 0 0 12px var(--navbar-glow);
+  background: rgba(255,255,255,0.12);
 }
 .navbar-logo .logo-text { color: var(--navbar-text-active); }
 .navbar-nav {
@@ -151,9 +165,8 @@ body {
 .navbar-nav .nav-item { color: var(--navbar-text); }
 .navbar-nav .nav-item:hover { color: #fff; background: rgba(255,255,255,0.08); }
 .navbar-nav .nav-item.active {
-  background: var(--navbar-pill-active-bg);
+  background: rgba(255,255,255,0.14);
   color: #fff;
-  box-shadow: 0 0 16px var(--navbar-glow);
 }
 .navbar-actions {
   display: flex;
@@ -217,31 +230,6 @@ body {
 }
 .fab:active { transform: scale(0.92); }
 
-/* Global AI chat entry point (visible on all pages, all viewport sizes) */
-.chat-fab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: fixed;
-  left: 18px;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  width: 52px; height: 52px;
-  border-radius: 50%;
-  border: none;
-  background: var(--navbar-pill-active-bg);
-  color: #fff;
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
-  z-index: 210;
-  box-shadow: 0 8px 24px var(--navbar-glow);
-  transition: transform var(--trans);
-}
-.chat-fab:active { transform: scale(0.92); }
-@media (max-width: 700px) {
-  .chat-fab { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); left: 14px; width: 48px; height: 48px; font-size: 20px; }
-}
-
 .logo-icon {
   width: 30px; height: 30px;
   background: var(--text-primary);
@@ -276,6 +264,7 @@ body {
   padding: 44px 36px;
   box-shadow: var(--shadow-lg);
   animation: slideUp 0.35s cubic-bezier(0.4,0,0.2,1);
+  animation-fill-mode: backwards;
   text-align: center;
 }
 .auth-logo {
@@ -320,11 +309,11 @@ body {
   display: flex;
   align-items: baseline;
   gap: 16px;
-  padding: 40px 40px 8px;
+  padding: 20px 28px 6px;
 }
 .menu-toggle { display: none; }
 .topbar-title {
-  font-size: 34px;
+  font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.02em;
   flex: 1;
@@ -334,7 +323,7 @@ body {
 /* ===== PAGES ===== */
 .page {
   display: none;
-  padding: 20px 40px 48px;
+  padding: 14px 28px 28px;
   flex: 1;
   animation: fadeUp 0.35s ease both;
 }
@@ -425,8 +414,9 @@ body {
 }
 .card {
   background: var(--bg-surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-bright);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
   padding: 24px;
   display: flex;
   align-items: flex-start;
@@ -507,8 +497,9 @@ body {
 /* ===== PANEL ===== */
 .panel {
   background: var(--bg-surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-bright);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
   margin-bottom: 14px;
 }
@@ -592,7 +583,7 @@ body {
 .m-status.pending { background: var(--orange-dim); color: var(--orange); }
 
 /* ===== TABLE ===== */
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -682,6 +673,9 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 14px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 .mandatory-card {
   background: var(--bg-surface);
@@ -795,7 +789,7 @@ body {
 .asum:first-child .asum-val { color: #fff; }
 
 .asset-module { margin-bottom: 14px; }
-.asset-list { padding: 6px 0; }
+.asset-list { padding: 6px 0; max-height: 360px; overflow-y: auto; }
 .asset-item {
   display: flex;
   align-items: center;
@@ -913,19 +907,6 @@ body {
 .add-category-row .input-field { flex: 1; }
 .text-muted { font-size: 14px; color: var(--text-muted); }
 
-/* Excel foundation note (feature in progress) */
-.excel-note {
-  background: var(--bg-elevated);
-  border: 1px dashed var(--border-bright);
-  border-radius: var(--radius-sm);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.excel-note-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.excel-note .text-muted { line-height: 1.5; }
-.export-btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-outline:disabled:hover { background: transparent; }
 
@@ -1216,6 +1197,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 .credit-card {
   background: var(--bg-elevated);

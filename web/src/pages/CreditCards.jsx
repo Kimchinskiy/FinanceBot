@@ -110,6 +110,10 @@ export default function CreditCards() {
         <button className="btn-primary" onClick={() => openForm(null)}>+ Добавить карту</button>
       </div>
 
+      <div className="text-muted" style={{ fontSize: 13, margin: '4px 0 14px' }}>
+        Кредитки не входят в баланс и накопления — это отдельный учёт долга, который вы гасите вручную.
+      </div>
+
       {showForm && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowForm(false); }}>
           <div className="modal">

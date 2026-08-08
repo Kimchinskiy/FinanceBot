@@ -47,6 +47,12 @@ export function now() {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
+// Светлое время суток по Владивостоку — используется для авто-темы
+export function isDaytimeVladivostok() {
+  const h = nowVladivostok().getUTCHours();
+  return h >= 6 && h < 18;
+}
+
 export function currentMonth() {
   const d = nowVladivostok();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -125,6 +131,29 @@ export function debtDirectionLabel(d) { return DEBT_DIRECTION_LABEL[d] || d; }
 
 export function assetEmoji(type) {
   return { deposit: '🏦', crypto: '₿', broker: '📊' }[type] || '💰';
+}
+
+export function fmtPercent(n) {
+  const v = Number(n);
+  const sign = v >= 0 ? '+' : '−';
+  return `${sign}${Math.abs(v).toFixed(1)}%`;
+}
+
+// % доходности крипты/акций: (текущая стоимость − вложено) / вложено
+export function returnPct(a) {
+  if (a.cost_basis == null || a.cost_basis === 0) return null;
+  return ((a.balance - a.cost_basis) / a.cost_basis) * 100;
+}
+
+// Оценка накопленных процентов по вкладу — простые проценты со дня открытия.
+// Ориентировочно: реальные условия банка (капитализация, налог) могут отличаться.
+export function depositAccrued(a) {
+  const rate = a.meta && a.meta.rate;
+  if (!rate || !a.purchased_at) return null;
+  const days = (Date.now() - new Date(a.purchased_at).getTime()) / 86400000;
+  if (days < 0) return null;
+  const accrued = a.balance * (rate / 100) * (days / 365);
+  return { accrued, days: Math.floor(days), pct: a.balance ? (accrued / a.balance) * 100 : 0 };
 }
 
 // Подсказывает категорию по истории операций: сначала ищем совпадение

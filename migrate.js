@@ -152,6 +152,11 @@ const columnMigrations = [
   { table: 'accounts', column: 'unit_price',       def: `unit_price REAL` },
   { table: 'accounts', column: 'meta',             def: `meta TEXT DEFAULT '{}'` },
   { table: 'accounts', column: 'price_updated_at', def: `price_updated_at TEXT` },
+  // Логин по имени пользователя (альтернатива email)
+  { table: 'users', column: 'username', def: `username TEXT` },
+  // Цена/сумма покупки и дата открытия — нужны для расчёта % доходности
+  { table: 'accounts', column: 'cost_basis',   def: `cost_basis REAL` },
+  { table: 'accounts', column: 'purchased_at', def: `purchased_at TEXT` },
 ];
 
 function columnExists(table, column) {
@@ -188,6 +193,10 @@ function runMigration() {
   try {
     db.exec(`UPDATE mandatory_payments SET status_updated_at = created_at WHERE status = 'paid' AND status_updated_at IS NULL`);
   } catch (_) { /* колонка могла ещё не существовать при самом первом запуске — не критично */ }
+
+  // Уникальный логин (username) — колонка добавлена выше через columnMigrations,
+  // поэтому индекс создаём отдельно, уже после того как она гарантированно есть.
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username) WHERE username IS NOT NULL`);
 }
 
 module.exports = { runMigration };

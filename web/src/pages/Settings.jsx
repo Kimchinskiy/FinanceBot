@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store.jsx';
-import { api, apiDownload } from '../api.js';
+import { api } from '../api.js';
 import { findAccountByName, fmt, DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS } from '../utils.js';
 import TelegramLoginButton from '../components/TelegramLoginButton.jsx';
+import { getThemeMode, setThemeMode } from '../theme.js';
 
 const OPENROUTER_MODEL_PRESETS = [
   'openai/gpt-4o-mini',
@@ -28,6 +29,14 @@ export default function Settings() {
   const [salaryPeriod, setSalaryPeriod] = useState(state.salary.period || 'monthly');
   const [newIncomeCat, setNewIncomeCat] = useState('');
   const [newExpenseCat, setNewExpenseCat] = useState('');
+
+  const [themeMode, setThemeModeState] = useState(getThemeMode());
+  const changeTheme = async (mode) => {
+    setThemeModeState(mode);
+    setThemeMode(mode);
+    try { await api('PUT', '/settings/theme_mode', { value: mode }); }
+    catch { toast('Ошибка сохранения темы', '#ff3b30'); }
+  };
 
   const [aiProvider, setAiProvider] = useState('openrouter');
   const [orModel, setOrModel] = useState('openai/gpt-4o-mini');
@@ -66,23 +75,6 @@ export default function Settings() {
       if (clearEl) clearEl.value = '';
       if (provider === 'gemini') setHasGmKey(true); else setHasOrKey(true);
     } catch { toast('Ошибка', '#ff3b30'); }
-  };
-
-  const EXPORT_TYPES = [
-    { type: 'incomes', label: 'Доходы' },
-    { type: 'expenses', label: 'Расходы' },
-    { type: 'mandatory', label: 'Обязательные платежи' },
-    { type: 'debts', label: 'Долги' },
-    { type: 'credit-cards', label: 'Кредитки' },
-    { type: 'goals', label: 'Цели' },
-  ];
-
-  const exportCsv = async (type) => {
-    try {
-      await apiDownload(`/export/${type}`, `${type}.csv`);
-    } catch (e) {
-      toast('Ошибка экспорта', '#ff3b30');
-    }
   };
 
   const saveAccountBalance = async (name, type, balance) => {
@@ -166,6 +158,20 @@ export default function Settings() {
 
   return (
     <div className="settings-grid">
+      <div className="panel">
+        <div className="panel-header"><span>🎨 Тема</span></div>
+        <div className="settings-form">
+          <p className="text-muted">«Авто» переключает тему по владивостокскому времени: светлая с 6:00 до 18:00, тёмная — в остальное время.</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[{ v: 'auto', l: '🌓 Авто' }, { v: 'light', l: '☀️ Светлая' }, { v: 'dark', l: '🌙 Тёмная' }].map(o => (
+              <button key={o.v} type="button"
+                className={themeMode === o.v ? 'btn-primary btn-sm' : 'btn-outline btn-sm'}
+                onClick={() => changeTheme(o.v)}>{o.l}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="panel">
         <div className="panel-header"><span>💵 Балансы счетов</span></div>
         <div className="settings-form">
@@ -300,16 +306,6 @@ export default function Settings() {
       <div className="panel panel-danger">
         <div className="panel-header"><span>⚠️ Данные</span></div>
         <div className="settings-form">
-          <div className="excel-note">
-            <div className="excel-note-title">📊 Экспорт данных</div>
-            <p className="text-muted">Выгрузка в CSV — открывается в Excel и Google Таблицах.</p>
-            <div className="export-btn-row">
-              {EXPORT_TYPES.map(e => (
-                <button key={e.type} className="btn-outline" onClick={() => exportCsv(e.type)}>📥 {e.label}</button>
-              ))}
-            </div>
-          </div>
-          <hr style={{ borderColor: 'var(--border)', margin: '12px 0' }} />
           <button className="btn-danger" onClick={clearData}>🗑️ Очистить все данные</button>
         </div>
       </div>

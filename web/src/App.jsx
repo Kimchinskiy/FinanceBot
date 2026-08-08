@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StoreProvider, useStore } from './store.jsx';
 import { api } from './api.js';
 import { closeTg } from './telegram.js';
@@ -27,7 +27,7 @@ import {
 
 const TITLES = {
   dashboard: 'Обзор', operations: 'Операции',
-  mandatory: 'Обязательные платежи', creditcards: 'Кредитки', assets: 'Активы', debts: 'Долги', analytics: 'Аналитика', chat: 'AI-помощник', settings: 'Настройки'
+  mandatory: 'Обязательные платежи', creditcards: 'Кредитки', assets: 'Накопления', debts: 'Долги', analytics: 'Аналитика', chat: 'AI-помощник', settings: 'Настройки'
 };
 
 function AppInner() {
@@ -79,9 +79,9 @@ function AppInner() {
 
   if (!token) {
     return <AuthScreen
-      onAuth={async (email, password, mode) => {
-        if (mode === 'register') await register(email, password);
-        else await login(email, password);
+      onAuth={async (fields, mode) => {
+        if (mode === 'register') await register(fields.email, fields.password, fields.username);
+        else await login(fields.identifier, fields.password);
       }}
       onTelegram={async (user) => { await loginTelegram(user); }} />;
   }
@@ -110,9 +110,6 @@ function AppInner() {
       </nav>
 
       <button className="fab" onClick={() => openQuickAdd('expense')} aria-label="Добавить операцию">+</button>
-      {page !== 'chat' && (
-        <button className="chat-fab" onClick={() => navigate('chat')} aria-label="AI-помощник">🧠</button>
-      )}
 
       <main className="main-content">
         <header className="topbar">
@@ -185,7 +182,7 @@ const NAV_ITEMS = [
   { id: 'debts', label: 'Долги' },
   { id: 'mandatory', label: 'Платежи' },
   { id: 'creditcards', label: 'Кредитки' },
-  { id: 'assets', label: 'Активы' },
+  { id: 'assets', label: 'Накопления' },
   { id: 'analytics', label: 'Аналитика' },
   { id: 'chat', label: 'AI' },
   { id: 'settings', label: 'Ещё' },
@@ -193,7 +190,9 @@ const NAV_ITEMS = [
 
 function AuthScreen({ onAuth, onTelegram }) {
   const [mode, setMode] = useState('login');
+  const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [allowRegister, setAllowRegister] = useState(true);
@@ -209,13 +208,17 @@ function AuthScreen({ onAuth, onTelegram }) {
     e.preventDefault();
     setError('');
     try {
-      await onAuth(email.trim(), password, mode);
+      if (mode === 'register') {
+        await onAuth({ email: email.trim(), username: username.trim(), password }, mode);
+      } else {
+        await onAuth({ identifier: identifier.trim(), password }, mode);
+      }
     } catch (err) {
-      setError(err.message === 'unauthorized' ? 'Неверный email или пароль' : (err.message || 'Ошибка входа'));
+      setError(err.message === 'unauthorized' ? 'Неверный логин или пароль' : (err.message || 'Ошибка входа'));
     }
   };
 
-  const handleTelegram = async (user) => {
+  const handleTelegram = useCallback(async (user) => {
     setTgLoading(true);
     setError('');
     try {
@@ -226,7 +229,7 @@ function AuthScreen({ onAuth, onTelegram }) {
     } finally {
       setTgLoading(false);
     }
-  };
+  }, [onTelegram]);
 
   return (
     <div className="auth-screen" style={{ display: 'flex' }}>
@@ -236,14 +239,27 @@ function AuthScreen({ onAuth, onTelegram }) {
           <span className="logo-text">FinanceBot</span>
         </div>
         <p className="auth-sub">Войдите, чтобы продолжить</p>
-        <form className="auth-form" onSubmit={submit} autoComplete="off">
+        <form className="auth-form" onSubmit={submit}>
+          {mode === 'login' ? (
+            <div className="form-group">
+              <label htmlFor="auth-identifier">Email или логин</label>
+              <input id="auth-identifier" name="identifier" type="text" className="input-field" placeholder="you@example.com или логин" required autoComplete="username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
+            </div>
+          ) : (
+            <>
+              <div className="form-group">
+                <label htmlFor="auth-email">Email</label>
+                <input id="auth-email" name="email" type="email" className="input-field" placeholder="you@example.com" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="auth-username">Логин (необязательно)</label>
+                <input id="auth-username" name="username" type="text" className="input-field" placeholder="username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+              </div>
+            </>
+          )}
           <div className="form-group">
-            <label>Email</label>
-            <input type="email" className="input-field" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>Пароль</label>
-            <input type="password" className="input-field" placeholder="••••••" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label htmlFor="auth-password">Пароль</label>
+            <input id="auth-password" name="password" type="password" className="input-field" placeholder="••••••" required autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <button type="submit" className="btn-primary auth-submit">{mode === 'login' ? 'Войти' : 'Зарегистрироваться'}</button>
         </form>

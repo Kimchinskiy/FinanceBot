@@ -94,49 +94,61 @@ router.get('/config', (req, res) => {
   res.json({ allowRegister: process.env.OPEN_REGISTER !== 'false' });
 });
 
+const USERNAME_RE = /^[a-zA-Z0-9_.]{3,32}$/;
+
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   if (process.env.OPEN_REGISTER === 'false') {
     return res.status(403).json({ error: 'Регистрация закрыта' });
   }
-  const { email, password } = req.body || {};
+  const { email, username, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email и пароль обязательны' });
   if (String(password).length < 6) return res.status(400).json({ error: 'Пароль минимум 6 символов' });
+  const uname = username ? String(username).trim().toLowerCase() : null;
+  if (uname && !USERNAME_RE.test(uname)) {
+    return res.status(400).json({ error: 'Логин: 3–32 символа, латиница/цифры/точка/подчёркивание' });
+  }
   const { query } = req.app.locals.db;
   try {
     const exists = await query('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
     if (exists.rows.length) return res.status(409).json({ error: 'Email уже занят' });
+    if (uname) {
+      const unameExists = await query('SELECT id FROM users WHERE username = ?', [uname]);
+      if (unameExists.rows.length) return res.status(409).json({ error: 'Логин уже занят' });
+    }
     const hash = await bcrypt.hash(password, 10);
     const id = uid();
     await query(
-      'INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)',
-      [id, email.toLowerCase(), hash]
+      'INSERT INTO users (id, email, username, password_hash) VALUES (?, ?, ?, ?)',
+      [id, email.toLowerCase(), uname, hash]
     );
     await ensureDefaultAccount(query, id);
     const token = signToken({ id, email: email.toLowerCase() });
-    res.json({ token, user: { id, email: email.toLowerCase() } });
+    res.json({ token, user: { id, email: email.toLowerCase(), username: uname } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/auth/login
+// POST /api/auth/login — принимает email или логин в поле identifier (email оставлен для обратной совместимости)
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: 'Email и пароль обязательны' });
-  const rateKey = `${req.ip}:${email.toLowerCase()}`;
+  const { identifier, email, password } = req.body || {};
+  const raw = (identifier || email || '').trim();
+  if (!raw || !password) return res.status(400).json({ error: 'Логин/email и пароль обязательны' });
+  const lower = raw.toLowerCase();
+  const rateKey = `${req.ip}:${lower}`;
   const lockedSec = loginRateLimited(rateKey);
   if (lockedSec) return res.status(429).json({ error: `Слишком много попыток. Попробуйте через ${lockedSec} сек.` });
   const { query } = req.app.locals.db;
   try {
-    const result = await query('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]);
+    const result = await query('SELECT * FROM users WHERE email = ? OR username = ?', [lower, lower]);
     const user = result.rows[0];
-    if (!user || !user.password_hash) { recordLoginFailure(rateKey); return res.status(401).json({ error: 'Неверный email или пароль' }); }
+    if (!user || !user.password_hash) { recordLoginFailure(rateKey); return res.status(401).json({ error: 'Неверный логин или пароль' }); }
     const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) { recordLoginFailure(rateKey); return res.status(401).json({ error: 'Неверный email или пароль' }); }
+    if (!ok) { recordLoginFailure(rateKey); return res.status(401).json({ error: 'Неверный логин или пароль' }); }
     recordLoginSuccess(rateKey);
     const token = signToken({ id: user.id, email: user.email });
-    res.json({ token, user: { id: user.id, email: user.email } });
+    res.json({ token, user: { id: user.id, email: user.email, username: user.username } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -209,7 +221,7 @@ router.post('/link-telegram', authRequired, async (req, res) => {
 router.get('/me', authRequired, async (req, res) => {
   const { query } = req.app.locals.db;
   try {
-    const result = await query('SELECT id, email, tg_id, created_at FROM users WHERE id = ?', [req.userId]);
+    const result = await query('SELECT id, email, username, tg_id, created_at FROM users WHERE id = ?', [req.userId]);
     if (!result.rows.length) return res.status(404).json({ error: 'Пользователь не найден' });
     res.json({ user: result.rows[0] });
   } catch (err) {

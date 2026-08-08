@@ -13,11 +13,13 @@ export default function AssetModal({ open, type, editing, onClose, onSaved, toas
   const [cryptoResults, setCryptoResults] = useState([]);
   const [selectedCrypto, setSelectedCrypto] = useState(null);
   const [qtyCrypto, setQtyCrypto] = useState('');
+  const [purchasePriceCrypto, setPurchasePriceCrypto] = useState('');
   const [cryptoPreview, setCryptoPreview] = useState('');
   const [cryptoPrice, setCryptoPrice] = useState(0);
   const [symbolBroker, setSymbolBroker] = useState('');
   const [qtyBroker, setQtyBroker] = useState('');
   const [priceBroker, setPriceBroker] = useState('');
+  const [purchasePriceBroker, setPurchasePriceBroker] = useState('');
   const [brokerPreview, setBrokerPreview] = useState('');
   const [brokerHint, setBrokerHint] = useState('');
   const [searchTimer, setSearchTimer] = useState(null);
@@ -34,9 +36,13 @@ export default function AssetModal({ open, type, editing, onClose, onSaved, toas
       setCryptoSearch('');
       setCryptoResults([]);
       setQtyCrypto(asset && asset.type === 'crypto' ? asset.quantity : '');
+      setPurchasePriceCrypto(asset && asset.type === 'crypto' && asset.cost_basis != null && asset.quantity
+        ? (asset.cost_basis / asset.quantity).toFixed(8).replace(/\.?0+$/, '') : '');
       setSymbolBroker(asset && asset.type === 'broker' ? (asset.symbol || '') : '');
       setQtyBroker(asset && asset.type === 'broker' ? asset.quantity : '');
       setPriceBroker(asset && asset.type === 'broker' ? asset.unit_price : '');
+      setPurchasePriceBroker(asset && asset.type === 'broker' && asset.cost_basis != null && asset.quantity
+        ? (asset.cost_basis / asset.quantity).toFixed(2) : '');
       setCryptoPreview('');
       setBrokerPreview('');
       if (asset && asset.type === 'crypto') {
@@ -120,8 +126,10 @@ export default function AssetModal({ open, type, editing, onClose, onSaved, toas
       payload.meta = { rate: isNaN(parseFloat(rate)) ? null : parseFloat(rate) };
     } else if (assetType === 'crypto') {
       const qty = parseFloat(qtyCrypto);
+      const purchasePrice = parseFloat(purchasePriceCrypto);
       if (!selectedCrypto) { toast('Выберите монету', '#ff3b30'); return; }
       if (!qty || qty <= 0) { toast('Введите количество', '#ff3b30'); return; }
+      if (isNaN(purchasePrice) || purchasePrice <= 0) { toast('Введите цену покупки', '#ff3b30'); return; }
       let price = cryptoPrice;
       if (!price) {
         try {
@@ -133,16 +141,20 @@ export default function AssetModal({ open, type, editing, onClose, onSaved, toas
       payload.symbol = selectedCrypto.id;
       payload.quantity = qty;
       payload.unit_price = price;
+      payload.purchase_price = purchasePrice;
     } else if (assetType === 'broker') {
       const qty = parseFloat(qtyBroker);
       const price = parseFloat(priceBroker);
+      const purchasePrice = parseFloat(purchasePriceBroker);
       if (!symbolBroker.trim()) { toast('Введите тикер', '#ff3b30'); return; }
       if (!qty || qty <= 0) { toast('Введите количество', '#ff3b30'); return; }
       if (isNaN(price) || price <= 0) { toast('Введите цену', '#ff3b30'); return; }
+      if (isNaN(purchasePrice) || purchasePrice <= 0) { toast('Введите цену покупки', '#ff3b30'); return; }
       payload.name = symbolBroker.trim().toUpperCase();
       payload.symbol = symbolBroker.trim().toUpperCase();
       payload.quantity = qty;
       payload.unit_price = price;
+      payload.purchase_price = purchasePrice;
     }
     try {
       if (editing) await api('PUT', `/accounts/${editing.id}`, payload);
@@ -210,6 +222,13 @@ export default function AssetModal({ open, type, editing, onClose, onSaved, toas
                 <label>Количество</label>
                 <input type="number" className="input-field" placeholder="0.00" step="any" value={qtyCrypto} onChange={(e) => { setQtyCrypto(e.target.value); updateCryptoPreview(); }} />
               </div>
+              <div className="form-group">
+                <label>Цена покупки за 1 монету, ₽</label>
+                <input type="number" className="input-field" placeholder="0.00" step="any" value={purchasePriceCrypto} onChange={(e) => setPurchasePriceCrypto(e.target.value)} />
+                {qtyCrypto && purchasePriceCrypto && !isNaN(parseFloat(qtyCrypto)) && !isNaN(parseFloat(purchasePriceCrypto)) && (
+                  <span className="text-muted">Вложено: {fmt(parseFloat(qtyCrypto) * parseFloat(purchasePriceCrypto))}</span>
+                )}
+              </div>
               {cryptoPreview && <div className="asset-preview">{cryptoPreview}</div>}
             </>
           )}
@@ -231,6 +250,13 @@ export default function AssetModal({ open, type, editing, onClose, onSaved, toas
                   {quotesConfig.stocks && <button type="button" className="btn-outline" onClick={fetchStockQuote}>Котировка</button>}
                 </div>
                 <span className="text-muted">{brokerHint}</span>
+              </div>
+              <div className="form-group">
+                <label>Цена покупки за 1 шт, ₽</label>
+                <input type="number" className="input-field" placeholder="0" step="any" value={purchasePriceBroker} onChange={(e) => setPurchasePriceBroker(e.target.value)} />
+                {qtyBroker && purchasePriceBroker && !isNaN(parseFloat(qtyBroker)) && !isNaN(parseFloat(purchasePriceBroker)) && (
+                  <span className="text-muted">Вложено: {fmt(parseFloat(qtyBroker) * parseFloat(purchasePriceBroker))}</span>
+                )}
               </div>
               {brokerPreview && <div className="asset-preview">{brokerPreview}</div>}
             </>

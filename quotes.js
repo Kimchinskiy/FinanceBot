@@ -1,7 +1,7 @@
 // ===================================================================
 // FinanceBot — quotes.js
 // Котировки активов:
-//   • Криптовалюта — CoinGecko (без ключа)
+//   • Криптовалюта — CoinMarketCap (нужен CMC_API_KEY), запасной источник — CoinGecko (без ключа)
 //   • Российские акции — MOEX ISS (без ключа, цена сразу в RUB)
 //   • Зарубежные акции — Finnhub (опционально по ключу STOCK_API_KEY)
 // Всё приводится к RUB. Комбинированный источник: сначала MOEX, затем Finnhub.
@@ -12,7 +12,9 @@ const router = express.Router();
 const COINGECKO = 'https://api.coingecko.com/api/v3';
 const FINNHUB = 'https://finnhub.io/api/v1';
 const MOEX = 'https://iss.moex.com/iss';
+const CMC = 'https://pro-api.coinmarketcap.com';
 const STOCK_API_KEY = process.env.STOCK_API_KEY || '';
+const CMC_API_KEY = process.env.CMC_API_KEY || '';
 
 // Небольшой кэш курса USD→RUB (на 1 час), чтобы не дёргать API постоянно
 let _usdRub = { value: null, ts: 0 };
@@ -54,7 +56,7 @@ async function getUsdRub() {
 }
 
 // Цены криптовалют в RUB. ids — массив coingecko id (bitcoin, ethereum, ...)
-async function fetchCryptoPrices(ids) {
+async function fetchCryptoPricesCoinGecko(ids) {
   if (!ids || !ids.length) return {};
   const list = ids.join(',');
   const r = await fetch(`${COINGECKO}/simple/price?ids=${encodeURIComponent(list)}&vs_currencies=rub`);
@@ -66,13 +68,84 @@ async function fetchCryptoPrices(ids) {
 }
 
 // Поиск монеты по названию/тикеру
-async function searchCrypto(q) {
+async function searchCryptoCoinGecko(q) {
   const r = await fetch(`${COINGECKO}/search?query=${encodeURIComponent(q)}`);
   if (!r.ok) throw new Error('CoinGecko error ' + r.status);
   const j = await r.json();
   return (j.coins || []).slice(0, 10).map(c => ({
     id: c.id, symbol: (c.symbol || '').toUpperCase(), name: c.name, thumb: c.thumb,
   }));
+}
+
+// ──────────────────── CoinMarketCap (основной источник крипто-цен) ────────────────────
+
+// Цены криптовалют в RUB через CMC. ids — массив CMC numeric id (строки/числа)
+async function fetchCryptoPricesCmc(ids) {
+  if (!CMC_API_KEY) throw new Error('CMC_API_KEY не задан');
+  if (!ids || !ids.length) return {};
+  const list = ids.join(',');
+  const r = await fetch(`${CMC}/v2/cryptocurrency/quotes/latest?id=${encodeURIComponent(list)}&convert=RUB`, {
+    headers: { 'X-CMC_PRO_API_KEY': CMC_API_KEY, 'Accept': 'application/json' },
+  });
+  if (!r.ok) throw new Error('CoinMarketCap error ' + r.status);
+  const j = await r.json();
+  const out = {};
+  for (const id of ids) {
+    const entry = j.data && j.data[id];
+    const coin = Array.isArray(entry) ? entry[0] : entry;
+    out[id] = coin && coin.quote && coin.quote.RUB ? Number(coin.quote.RUB.price) : null;
+  }
+  return out;
+}
+
+// Кэш списка активных монет CMC (для поиска — free-tier не даёт search по подстроке)
+let _cmcMap = { list: null, ts: 0 };
+const CMC_MAP_TTL = 24 * 3600_000;
+
+async function getCmcMap() {
+  const now = Date.now();
+  if (_cmcMap.list && now - _cmcMap.ts < CMC_MAP_TTL) return _cmcMap.list;
+  if (!CMC_API_KEY) throw new Error('CMC_API_KEY не задан');
+  const r = await fetch(`${CMC}/v1/cryptocurrency/map?listing_status=active`, {
+    headers: { 'X-CMC_PRO_API_KEY': CMC_API_KEY, 'Accept': 'application/json' },
+  });
+  if (!r.ok) throw new Error('CoinMarketCap error ' + r.status);
+  const j = await r.json();
+  const list = (j.data || []).map(c => ({ id: String(c.id), symbol: c.symbol, name: c.name }));
+  _cmcMap = { list, ts: now };
+  return list;
+}
+
+async function searchCryptoCmc(q) {
+  const list = await getCmcMap();
+  const needle = q.trim().toLowerCase();
+  const matches = list.filter(c =>
+    c.symbol.toLowerCase().includes(needle) || c.name.toLowerCase().includes(needle)
+  );
+  // точные совпадения тикера — в начало списка
+  matches.sort((a, b) => {
+    const ae = a.symbol.toLowerCase() === needle ? 0 : 1;
+    const be = b.symbol.toLowerCase() === needle ? 0 : 1;
+    return ae - be;
+  });
+  return matches.slice(0, 10).map(c => ({ id: c.id, symbol: c.symbol.toUpperCase(), name: c.name }));
+}
+
+// Публичные fetchCryptoPrices/searchCrypto: CMC как основной источник,
+// CoinGecko — запасной (если ключ не задан или CMC недоступен).
+async function fetchCryptoPrices(ids) {
+  if (!ids || !ids.length) return {};
+  if (CMC_API_KEY) {
+    try { return await fetchCryptoPricesCmc(ids); } catch (_) { /* падаем на CoinGecko */ }
+  }
+  return fetchCryptoPricesCoinGecko(ids);
+}
+
+async function searchCrypto(q) {
+  if (CMC_API_KEY) {
+    try { return await searchCryptoCmc(q); } catch (_) { /* падаем на CoinGecko */ }
+  }
+  return searchCryptoCoinGecko(q);
 }
 
 // ──────────────────── АКЦИИ ────────────────────
@@ -158,7 +231,8 @@ async function searchStock(q) {
 router.get('/config', (req, res) => {
   // Российские акции (MOEX) доступны всегда без ключа;
   // зарубежные (Finnhub) — только при заданном STOCK_API_KEY.
-  res.json({ crypto: true, stocks: true, stocksRu: true, stocksIntl: Boolean(STOCK_API_KEY) });
+  // Крипта работает всегда (CoinGecko без ключа), CMC — точнее/официальнее, если задан ключ.
+  res.json({ crypto: true, stocks: true, stocksRu: true, stocksIntl: Boolean(STOCK_API_KEY), cmc: Boolean(CMC_API_KEY) });
 });
 
 router.get('/crypto/search', async (req, res) => {

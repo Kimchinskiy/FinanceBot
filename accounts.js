@@ -13,11 +13,15 @@ const SPENDABLE = ['cash', 'card'];
 const INVEST = ['deposit', 'crypto', 'broker'];
 
 function normalize(r) {
+  let meta = {};
+  if (r.meta) { try { meta = JSON.parse(r.meta); } catch (_) { /* оставляем {} */ } }
   return {
     ...r,
     balance: parseFloat(r.balance),
     quantity: r.quantity != null ? parseFloat(r.quantity) : null,
     unit_price: r.unit_price != null ? parseFloat(r.unit_price) : null,
+    cost_basis: r.cost_basis != null ? parseFloat(r.cost_basis) : null,
+    meta,
   };
 }
 
@@ -54,7 +58,7 @@ router.get('/total', async (req, res) => {
 
 // POST /api/accounts
 router.post('/', async (req, res) => {
-  const { name, type, currency, balance, symbol, quantity, unit_price, meta } = req.body || {};
+  const { name, type, currency, balance, symbol, quantity, unit_price, purchase_price, meta } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Укажите название счёта' });
   const { query } = req.app.locals.db;
   try {
@@ -65,12 +69,15 @@ router.post('/', async (req, res) => {
     let value = parseFloat(balance);
     if (qty != null && price != null) value = qty * price;
     if (isNaN(value)) value = 0;
-    const priceUpdatedAt = qty != null ? new Date().toISOString() : null;
+    const purchasePrice = purchase_price != null ? parseFloat(purchase_price) : null;
+    const costBasis = qty != null && purchasePrice != null ? qty * purchasePrice : null;
+    const now = new Date().toISOString();
+    const priceUpdatedAt = qty != null ? now : null;
     await query(
-      `INSERT INTO accounts (id, user_id, name, type, currency, balance, symbol, quantity, unit_price, meta, price_updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO accounts (id, user_id, name, type, currency, balance, symbol, quantity, unit_price, meta, price_updated_at, cost_basis, purchased_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [id, req.userId, name, type || 'cash', currency || 'RUB', value,
-       symbol || null, qty, price, meta ? JSON.stringify(meta) : '{}', priceUpdatedAt]
+       symbol || null, qty, price, meta ? JSON.stringify(meta) : '{}', priceUpdatedAt, costBasis, now]
     );
     res.json({ id });
   } catch (err) {
@@ -80,7 +87,7 @@ router.post('/', async (req, res) => {
 
 // PUT /api/accounts/:id
 router.put('/:id', async (req, res) => {
-  const { name, type, currency, balance, symbol, quantity, unit_price, meta } = req.body || {};
+  const { name, type, currency, balance, symbol, quantity, unit_price, purchase_price, meta } = req.body || {};
   const { query } = req.app.locals.db;
   try {
     const qty = quantity != null ? parseFloat(quantity) : null;
@@ -88,13 +95,15 @@ router.put('/:id', async (req, res) => {
     let value = parseFloat(balance);
     if (qty != null && price != null) value = qty * price;
     if (isNaN(value)) value = 0;
-    // meta: если передан — обновляем, иначе оставляем прежний
+    const purchasePrice = purchase_price != null ? parseFloat(purchase_price) : null;
+    const costBasis = qty != null && purchasePrice != null ? qty * purchasePrice : null;
+    // meta/cost_basis: если переданы — обновляем, иначе оставляем прежние
     await query(
       `UPDATE accounts SET name=?, type=?, currency=?, balance=?, symbol=?, quantity=?, unit_price=?,
-              meta=COALESCE(?, meta)
+              meta=COALESCE(?, meta), cost_basis=COALESCE(?, cost_basis)
        WHERE id=? AND user_id=?`,
       [name, type || 'cash', currency || 'RUB', value, symbol || null, qty, price,
-       meta ? JSON.stringify(meta) : null, req.params.id, req.userId]
+       meta ? JSON.stringify(meta) : null, costBasis, req.params.id, req.userId]
     );
     res.json({ ok: true });
   } catch (err) {

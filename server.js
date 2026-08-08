@@ -10,7 +10,6 @@ const accountsRouter = require('./accounts');
 const goalsRouter = require('./goals');
 const aiRouter = require('./ai');
 const creditCardsRouter = require('./creditCards');
-const exportRouter = require('./exportCsv');
 const { router: quotesRouter } = require('./quotes');
 const { runMigration } = require('./migrate');
 const { currentMonthVladivostok, nowVladivostokIso } = require('./timezone');
@@ -543,7 +542,6 @@ app.use('/api/goals', authRequired, goalsRouter);
 app.use('/api/ai', authRequired, aiRouter);
 app.use('/api/quotes', authRequired, quotesRouter);
 app.use('/api/credit-cards', authRequired, creditCardsRouter);
-app.use('/api/export', authRequired, exportRouter);
 
 /* ──────────────────── SPA FALLBACK (React) ──────────────────── */
 // Все не-API GET-запросы отдаём index.html собранного фронта

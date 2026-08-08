@@ -1,0 +1,22 @@
+services:
+  financebot:
+    build:
+      context: .
+    image: financebot:latest
+    container_name: financebot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3000
+    volumes:
+      - financebot-data:/app/data
+    networks:
+      - app-net
+
+volumes:
+  financebot-data:
+
+networks:
+  app-net:
+    external: true
+    name: ip-pathfinder_app-net

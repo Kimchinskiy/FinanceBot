@@ -103,12 +103,13 @@ router.post('/:id/purchase', async (req, res) => {
   }
 });
 
+// Оплата долга по кредитке — учётно изолирована от обычных счетов (accounts):
+// уменьшает только долг по карте, реальные деньги нигде автоматически не списываются.
 router.post('/:id/payment', async (req, res) => {
   const { query } = req.app.locals.db;
-  const { description, source, datetime } = req.body || {};
+  const { description, datetime } = req.body || {};
   const amt = parseAmount(req.body?.amount);
   if (amt === null) return res.status(400).json({ error: 'Некорректная сумма' });
-  const src = source || 'Карта';
   try {
     await withUserLock(req.userId, async () => {
       const card = await query('SELECT * FROM credit_cards WHERE id=? AND user_id=?', [req.params.id, req.userId]);
@@ -119,13 +120,6 @@ router.post('/:id/payment', async (req, res) => {
         [txnId, req.userId, req.params.id, 'payment', amt, description || '', datetime || new Date().toISOString()]
       );
       await query('UPDATE credit_cards SET balance = balance - ? WHERE id=? AND user_id=?', [amt, req.params.id, req.userId]);
-      await query(
-        `UPDATE accounts SET balance = balance - ? WHERE id = (
-           SELECT id FROM accounts WHERE user_id = ?
-           ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
-         )`,
-        [amt, req.userId, src]
-      );
       res.json({ id: txnId });
     });
   } catch (err) {
