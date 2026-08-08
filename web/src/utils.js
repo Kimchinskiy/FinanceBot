@@ -157,6 +157,18 @@ export function depositAccrued(a) {
 }
 
 // Подсказывает категорию по истории операций: сначала ищем совпадение
+// Явное правило «сумма расхода ≤ maxAmount → категория» (настраивается в
+// Настройках). При нескольких подходящих правилах побеждает то, у которого
+// maxAmount меньше — самая узкая подходящая «ступенька».
+export function matchCategoryRule(rules, amount) {
+  const amt = parseFloat(amount);
+  if (!rules || !rules.length || isNaN(amt) || amt <= 0) return null;
+  const candidates = rules.filter(r => amt <= Number(r.maxAmount));
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => Number(a.maxAmount) - Number(b.maxAmount));
+  return candidates[0].category;
+}
+
 // по описанию (частичное, регистронезависимое), при отсутствии —
 // по близкой сумме (±15% либо ±50₽, что больше). При нескольких
 // кандидатах побеждает категория с наибольшим числом совпадений,

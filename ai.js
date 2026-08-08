@@ -208,6 +208,67 @@ async function ruleBasedAdvice(query, userId) {
   return tips.slice(0, 5);
 }
 
+// Детерминированная сводка: с начала текущего месяца vs весь предыдущий месяц.
+// Без LLM — быстро, бесплатно, не зависит от того, задан ли API-ключ.
+async function monthlySummary(query, userId) {
+  const now = nowVladivostok();
+  const curStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const prevStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const curStartIso = curStart.toISOString();
+  const prevStartIso = prevStart.toISOString();
+
+  const [incCur, incPrev, expCurByCat, expPrevByCat] = await Promise.all([
+    query(`SELECT COALESCE(SUM(amount),0) AS total FROM incomes WHERE user_id=? AND datetime >= ?`, [userId, curStartIso]),
+    query(`SELECT COALESCE(SUM(amount),0) AS total FROM incomes WHERE user_id=? AND datetime >= ? AND datetime < ?`, [userId, prevStartIso, curStartIso]),
+    query(`SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses WHERE user_id=? AND datetime >= ? GROUP BY category`, [userId, curStartIso]),
+    query(`SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses WHERE user_id=? AND datetime >= ? AND datetime < ? GROUP BY category`, [userId, prevStartIso, curStartIso]),
+  ]);
+
+  const tips = [];
+  const pctChange = (cur, prev) => Math.round(((cur - prev) / prev) * 100);
+
+  const incCurTotal = Number(incCur.rows[0].total);
+  const incPrevTotal = Number(incPrev.rows[0].total);
+  if (incPrevTotal > 0) {
+    const pct = pctChange(incCurTotal, incPrevTotal);
+    tips.push(`Доход с начала месяца: ${rub(incCurTotal)} — это на ${Math.abs(pct)}% ${pct >= 0 ? 'больше' : 'меньше'}, чем за весь прошлый месяц (${rub(incPrevTotal)}).`);
+  }
+
+  const prevByCat = {};
+  expPrevByCat.rows.forEach(r => { prevByCat[r.category] = Number(r.total); });
+
+  const catDeltas = expCurByCat.rows
+    .filter(r => prevByCat[r.category] > 0)
+    .map(r => ({
+      category: r.category,
+      cur: Number(r.total),
+      prev: prevByCat[r.category],
+      pct: pctChange(Number(r.total), prevByCat[r.category]),
+    }))
+    .sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))
+    .slice(0, 5);
+
+  catDeltas.forEach(d => {
+    tips.push(`Расходы на «${d.category}»: ${rub(d.cur)} с начала месяца — на ${Math.abs(d.pct)}% ${d.pct >= 0 ? 'больше' : 'меньше'}, чем за весь прошлый месяц (${rub(d.prev)}).`);
+  });
+
+  if (!tips.length) {
+    tips.push('Пока недостаточно данных за прошлый месяц для сравнения.');
+  }
+  return tips;
+}
+
+// GET /api/ai/monthly-summary — сводка месяца (текущий месяц vs весь предыдущий)
+router.get('/monthly-summary', async (req, res) => {
+  const { query } = req.app.locals.db;
+  try {
+    const tips = await monthlySummary(query, req.userId);
+    res.json({ tips });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/ai/config — текущий провайдер/модели и наличие ключей (сами ключи не отдаются)
 router.get('/config', async (req, res) => {
   const { query } = req.app.locals.db;

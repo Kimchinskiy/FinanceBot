@@ -490,9 +490,12 @@ body {
 .two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  align-items: stretch;
   gap: 14px;
   margin-bottom: 14px;
 }
+.two-col .panel { height: 100%; }
+.chart-box { position: relative; height: 280px; padding: 4px 16px 16px; }
 
 /* ===== PANEL ===== */
 .panel {
@@ -528,7 +531,7 @@ body {
 /* Equal-height dashboard panels */
 .two-col .panel { display: flex; flex-direction: column; }
 .two-col .panel .transactions-list,
-.two-col .panel .mandatory-list { flex: 1; }
+.two-col .panel .mandatory-list { flex: 1; min-height: 0; height: auto; }
 .tx-item {
   display: flex;
   align-items: center;
@@ -778,16 +781,13 @@ body {
 }
 .asum {
   background: var(--bg-surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-bright);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
   padding: 18px 20px;
 }
 .asum-label { font-size: 13px; color: var(--text-muted); font-weight: 500; margin-bottom: 6px; }
 .asum-val { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
-.asum:first-child { background: var(--text-primary); }
-.asum:first-child .asum-label { color: rgba(255,255,255,0.6); }
-.asum:first-child .asum-val { color: #fff; }
-
 .asset-module { margin-bottom: 14px; }
 .asset-list { padding: 6px 0; max-height: 360px; overflow-y: auto; }
 .asset-item {
@@ -855,6 +855,15 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 14px;
 }
+.settings-row-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: stretch;
+  gap: 14px;
+  margin-top: 14px;
+}
+.settings-row-3 .panel { height: 100%; display: flex; flex-direction: column; }
+.settings-row-3 .settings-form { flex: 1; }
 .settings-form {
   padding: 22px;
   display: flex;

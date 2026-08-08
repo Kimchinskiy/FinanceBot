@@ -71,6 +71,7 @@ export default function Analytics() {
 
   const pieOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: { position: 'bottom', labels: { color: '#6e6e73', font: { family: '-apple-system, Inter', size: 12 }, padding: 14, boxWidth: 12 } },
       tooltip: { backgroundColor: '#1d1d1f', borderColor: 'rgba(0,0,0,0.06)', borderWidth: 1, titleColor: '#ffffff', bodyColor: '#d1d1d6', padding: 12, cornerRadius: 10, callbacks: { label: tooltipPie } },
@@ -110,11 +111,11 @@ export default function Analytics() {
       <div className="two-col">
         <div className="panel">
           <div className="panel-header"><span>Расходы по категориям</span></div>
-          <Doughnut data={expensePie} options={pieOptions} />
+          <div className="chart-box"><Doughnut data={expensePie} options={pieOptions} /></div>
         </div>
         <div className="panel">
           <div className="panel-header"><span>Доходы по категориям</span></div>
-          <Doughnut data={incomePie} options={pieOptions} />
+          <div className="chart-box"><Doughnut data={incomePie} options={pieOptions} /></div>
         </div>
       </div>
       <div className="panel">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store.jsx';
 import { api } from '../api.js';
-import { now, suggestCategory } from '../utils.js';
+import { now, suggestCategory, matchCategoryRule } from '../utils.js';
 
 export default function QuickAddModal({ open, type, editing, onClose, onSaved, toast }) {
   const { state } = useStore();
@@ -40,10 +40,19 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
   const cats = modalType === 'income' ? state.incomeCategories : state.expenseCategories;
   const isEdit = !!editing;
 
-  // Автоподсказка категории по истории: описание в приоритете, иначе — близкая сумма.
-  // Не трогаем категорию, если пользователь уже выбрал её сам, и не работаем в режиме редактирования.
+  // Автоподсказка категории: сначала явные правила «сумма → категория» из
+  // Настроек (только для расходов), иначе — эвристика по истории (описание
+  // в приоритете, иначе близкая сумма). Не трогаем категорию, если
+  // пользователь уже выбрал её сам, и не работаем в режиме редактирования.
   useEffect(() => {
     if (!open || isEdit || categoryTouched) return;
+    if (modalType === 'expense') {
+      const ruleMatch = matchCategoryRule(state.categoryRules, amount);
+      if (ruleMatch && cats.includes(ruleMatch) && ruleMatch !== category) {
+        setCategory(ruleMatch);
+        return;
+      }
+    }
     const t = setTimeout(() => {
       const entries = modalType === 'income' ? state.incomes : state.expenses;
       const suggestion = suggestCategory(entries, { description: desc, amount });

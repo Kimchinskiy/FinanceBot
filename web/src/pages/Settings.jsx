@@ -29,6 +29,8 @@ export default function Settings() {
   const [salaryPeriod, setSalaryPeriod] = useState(state.salary.period || 'monthly');
   const [newIncomeCat, setNewIncomeCat] = useState('');
   const [newExpenseCat, setNewExpenseCat] = useState('');
+  const [newRuleAmount, setNewRuleAmount] = useState('');
+  const [newRuleCategory, setNewRuleCategory] = useState(state.expenseCategories[0] || '');
 
   const [themeMode, setThemeModeState] = useState(getThemeMode());
   const changeTheme = async (mode) => {
@@ -138,6 +140,23 @@ export default function Settings() {
     }
   };
 
+  const addCategoryRule = async () => {
+    const amt = parseFloat(newRuleAmount);
+    if (isNaN(amt) || amt <= 0) { toast('Введите сумму', '#ff3b30'); return; }
+    if (!newRuleCategory) { toast('Выберите категорию', '#ff3b30'); return; }
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    const rules = [...state.categoryRules, { id, maxAmount: amt, category: newRuleCategory }];
+    update({ categoryRules: rules });
+    await api('PUT', '/settings/category_rules', { value: rules });
+    setNewRuleAmount('');
+  };
+
+  const removeCategoryRule = async (id) => {
+    const rules = state.categoryRules.filter(r => r.id !== id);
+    update({ categoryRules: rules });
+    await api('PUT', '/settings/category_rules', { value: rules });
+  };
+
   const clearData = () => {
     confirmAction('Удалить ВСЕ данные? Это действие нельзя отменить.', async () => {
       try {
@@ -157,6 +176,7 @@ export default function Settings() {
   };
 
   return (
+    <>
     <div className="settings-grid">
       <div className="panel">
         <div className="panel-header"><span>🎨 Тема</span></div>
@@ -231,6 +251,30 @@ export default function Settings() {
       </div>
 
       <div className="panel">
+        <div className="panel-header"><span>🎯 Правила категорий по сумме</span></div>
+        <div className="settings-form">
+          <p className="text-muted">При добавлении расхода на сумму до указанной категория подставится автоматически. Например: «до 70 ₽ → Транспорт».</p>
+          {state.categoryRules.length > 0 && (
+            <div className="category-chips">
+              {[...state.categoryRules].sort((a, b) => Number(a.maxAmount) - Number(b.maxAmount)).map(r => (
+                <div key={r.id} className="category-chip">
+                  <span>до {r.maxAmount} ₽ → {r.category}</span>
+                  <button className="chip-remove" onClick={() => removeCategoryRule(r.id)} aria-label={`Удалить правило до ${r.maxAmount} ₽`}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="add-category-row">
+            <input type="number" className="input-field" placeholder="Сумма до, ₽" style={{ maxWidth: 140 }} value={newRuleAmount} onChange={(e) => setNewRuleAmount(e.target.value)} />
+            <select className="input-field" value={newRuleCategory} onChange={(e) => setNewRuleCategory(e.target.value)}>
+              {state.expenseCategories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button className="btn-outline" onClick={addCategoryRule}>+</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="panel">
         <div className="panel-header"><span>🧠 AI-помощник</span></div>
         <div className="settings-form">
           <p className="text-muted">Выберите провайдера, модель и укажите ключ API. Если ключ не задан — AI отвечает в базовом режиме.</p>
@@ -287,6 +331,9 @@ export default function Settings() {
         </div>
       </div>
 
+    </div>
+
+    <div className="settings-row-3">
       <div className="panel">
         <div className="panel-header"><span>💬 Telegram</span></div>
         <div className="settings-form">
@@ -317,5 +364,6 @@ export default function Settings() {
         </div>
       </div>
     </div>
+    </>
   );
 }

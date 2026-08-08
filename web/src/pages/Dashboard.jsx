@@ -1,8 +1,15 @@
+import { useEffect, useState } from 'react';
 import { useStore } from '../store.jsx';
+import { api } from '../api.js';
 import { fmt, currentMonth, getCategoryEmoji, sourceLabel, typeLabel, getNextSalaryDate, daysUntilSalary, fmtDate, fmtDateTime, findAccountByName, sumBalances, spendableTotal, investTotal } from '../utils.js';
 
 export default function Dashboard() {
   const { state } = useStore();
+  const [summaryTips, setSummaryTips] = useState(null);
+
+  useEffect(() => {
+    api('GET', '/ai/monthly-summary').then(res => setSummaryTips(res.tips || [])).catch(() => setSummaryTips([]));
+  }, []);
   const month = currentMonth();
   const thisIncome = state.incomes.filter(i => i.datetime.startsWith(month));
   const thisExpense = state.expenses.filter(e => e.datetime.startsWith(month));
@@ -78,6 +85,17 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {summaryTips && summaryTips.length > 0 && (
+        <div className="panel">
+          <div className="panel-header"><span>🧠 AI-сводка месяца</span></div>
+          <div className="settings-form">
+            <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {summaryTips.map((t, i) => <li key={i} className="text-muted" style={{ fontSize: 14 }}>{t}</li>)}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {salary.day && (
         <div className="salary-countdown-bar" style={{ display: 'flex' }}>

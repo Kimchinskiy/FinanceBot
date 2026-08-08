@@ -38,6 +38,7 @@ export function StoreProvider({ children }) {
     salary: { day: null, amount: 0, period: 'monthly' },
     incomeCategories: [...DEFAULT_INCOME_CATS],
     expenseCategories: [...DEFAULT_EXPENSE_CATS],
+    categoryRules: [],
     chatMessages: [],
   });
   const [loading, setLoading] = useState(false);
@@ -85,6 +86,9 @@ export function StoreProvider({ children }) {
                   : settings.expense_categories)
               : [...DEFAULT_EXPENSE_CATS])
           : prev.expenseCategories,
+        categoryRules: settings.category_rules
+          ? (typeof settings.category_rules === 'string' ? JSON.parse(settings.category_rules) : settings.category_rules)
+          : prev.categoryRules,
       }));
     } catch (e) {
       console.error('Load error', e);
