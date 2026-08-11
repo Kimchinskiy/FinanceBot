@@ -83,13 +83,12 @@ export default function MandatoryModal({ open, editing, onClose, onSaved, toast 
               <option value="yearly">Ежегодно</option>
             </select>
           </div>
-          <div className="form-group">
-            <label>Статус</label>
-            <select className="input-field" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="pending">Ожидает</option>
-              <option value="paid">Оплачен</option>
-            </select>
-          </div>
+          {editing && (
+            <div className="form-group">
+              <label>Статус</label>
+              <p className="text-muted">{status === 'paid' ? 'Оплачен' : 'Ожидает'} — меняется кнопкой «Отметить оплаченным» в списке, не здесь (иначе баланс счёта не пересчитается).</p>
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <button className="btn-outline" onClick={onClose}>Отмена</button>

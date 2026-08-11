@@ -33,6 +33,9 @@ export default function Dashboard() {
   const salary = state.salary;
   const nextSalary = getNextSalaryDate(salary);
   const days = daysUntilSalary(salary);
+  const lastSalaryIncome = state.incomes
+    .filter(i => i.category === 'Зарплата')
+    .sort((a, b) => new Date(b.datetime) - new Date(a.datetime))[0];
 
   const all = [
     ...state.incomes.map(i => ({ ...i, kind: 'income' })),
@@ -97,7 +100,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {salary.day && (
+      {nextSalary && (
         <div className="salary-countdown-bar" style={{ display: 'flex' }}>
           <div className="salary-bar-left">
             <span className="salary-icon">🗓️</span>
@@ -108,7 +111,7 @@ export default function Dashboard() {
           </div>
           <div className="salary-bar-right">
             <div className="days-chip">{days === 0 ? '🎉 Сегодня!' : `${days} дн.`}</div>
-            <div className="salary-expected">{salary.amount ? fmt(salary.amount) : ''}</div>
+            <div className="salary-expected">{lastSalaryIncome ? fmt(lastSalaryIncome.amount) : ''}</div>
           </div>
         </div>
       )}

@@ -338,7 +338,7 @@ async function resetStaleMandatory(userId) {
   const nowIso = nowVladivostokIso();
   await query(
     `UPDATE mandatory_payments
-     SET status = 'pending', status_updated_at = ?
+     SET status = 'pending', status_updated_at = ?, linked_expense_id = NULL
      WHERE user_id = ? AND status = 'paid'
        AND strftime('%Y-%m', COALESCE(status_updated_at, created_at)) <> ?`,
     [nowIso, userId, nowMonth]
@@ -402,20 +402,14 @@ app.patch('/api/mandatory/:id/toggle', authRequired, async (req, res) => {
   try {
     await withUserLock(req.userId, async () => {
       await resetStaleMandatory(req.userId);
-      const row = await query('SELECT amount, status, source FROM mandatory_payments WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+      const row = await query('SELECT name, amount, category, status, source, linked_expense_id FROM mandatory_payments WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
       if (!row.rows[0]) return res.status(404).json({ error: 'Не найдено' });
       const wasPaid = row.rows[0].status === 'paid';
       const src = row.rows[0].source || 'Карта';
-
-      await query(
-        `UPDATE mandatory_payments SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END,
-         status_updated_at = ?
-         WHERE id = ? AND user_id = ?`,
-        [nowVladivostokIso(), req.params.id, req.userId]
-      );
-
       const amt = Number(row.rows[0].amount);
+
       if (wasPaid) {
+        // Отмена отметки «оплачено» → возвращаем деньги на счёт и удаляем созданную операцию расхода
         await query(
           `UPDATE accounts SET balance = balance + ? WHERE id = (
              SELECT id FROM accounts WHERE user_id = ?
@@ -423,13 +417,33 @@ app.patch('/api/mandatory/:id/toggle', authRequired, async (req, res) => {
            )`,
           [amt, req.userId, src]
         );
+        if (row.rows[0].linked_expense_id) {
+          await query('DELETE FROM expenses WHERE id = ? AND user_id = ?', [row.rows[0].linked_expense_id, req.userId]);
+        }
+        await query(
+          `UPDATE mandatory_payments SET status = 'pending', status_updated_at = ?, linked_expense_id = NULL
+           WHERE id = ? AND user_id = ?`,
+          [nowVladivostokIso(), req.params.id, req.userId]
+        );
       } else {
+        // Отмечаем оплаченным → списываем со счёта и создаём настоящую операцию расхода
         await query(
           `UPDATE accounts SET balance = balance - ? WHERE id = (
              SELECT id FROM accounts WHERE user_id = ?
              ORDER BY (name = ?) DESC, created_at ASC LIMIT 1
            )`,
           [amt, req.userId, src]
+        );
+        const expenseId = uid();
+        const now = nowVladivostokIso();
+        await query(
+          'INSERT INTO expenses (id, user_id, amount, category, description, datetime, source) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [expenseId, req.userId, amt, row.rows[0].category, row.rows[0].name, now, src]
+        );
+        await query(
+          `UPDATE mandatory_payments SET status = 'paid', status_updated_at = ?, linked_expense_id = ?
+           WHERE id = ? AND user_id = ?`,
+          [now, expenseId, req.params.id, req.userId]
         );
       }
       res.json({ ok: true });
@@ -495,22 +509,16 @@ app.delete('/api/debts/:id', authRequired, async (req, res) => {
 app.patch('/api/debts/:id/toggle', authRequired, async (req, res) => {
   try {
     await withUserLock(req.userId, async () => {
-      const row = await query('SELECT amount, status, direction, source FROM debts WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+      const row = await query('SELECT person, amount, status, direction, source, linked_expense_id FROM debts WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
       if (!row.rows[0]) return res.status(404).json({ error: 'Не найдено' });
       const wasPaid = row.rows[0].status === 'paid';
       const direction = row.rows[0].direction;
       const src = row.rows[0].source || 'Карта';
-
-      await query(
-        `UPDATE debts SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END
-         WHERE id = ? AND user_id = ?`,
-        [req.params.id, req.userId]
-      );
-
       const amt = Number(row.rows[0].amount);
+
       if (direction === 'i_owe') {
         if (wasPaid) {
-          // Возврат отметки → деньги возвращаются на счёт
+          // Возврат отметки → деньги возвращаются на счёт, удаляем созданную операцию расхода
           await query(
             `UPDATE accounts SET balance = balance + ? WHERE id = (
                SELECT id FROM accounts WHERE user_id = ?
@@ -518,8 +526,15 @@ app.patch('/api/debts/:id/toggle', authRequired, async (req, res) => {
              )`,
             [amt, req.userId, src]
           );
+          if (row.rows[0].linked_expense_id) {
+            await query('DELETE FROM expenses WHERE id = ? AND user_id = ?', [row.rows[0].linked_expense_id, req.userId]);
+          }
+          await query(
+            `UPDATE debts SET status = 'pending', linked_expense_id = NULL WHERE id = ? AND user_id = ?`,
+            [req.params.id, req.userId]
+          );
         } else {
-          // Отмечаем оплаченным → списываем со счёта
+          // Отмечаем оплаченным → списываем со счёта и создаём настоящую операцию расхода
           await query(
             `UPDATE accounts SET balance = balance - ? WHERE id = (
                SELECT id FROM accounts WHERE user_id = ?
@@ -527,7 +542,22 @@ app.patch('/api/debts/:id/toggle', authRequired, async (req, res) => {
              )`,
             [amt, req.userId, src]
           );
+          const expenseId = uid();
+          await query(
+            'INSERT INTO expenses (id, user_id, amount, category, description, datetime, source) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [expenseId, req.userId, amt, 'Долги', `Долг: ${row.rows[0].person}`, nowVladivostokIso(), src]
+          );
+          await query(
+            `UPDATE debts SET status = 'paid', linked_expense_id = ? WHERE id = ? AND user_id = ?`,
+            [expenseId, req.params.id, req.userId]
+          );
         }
+      } else {
+        await query(
+          `UPDATE debts SET status = CASE WHEN status = 'paid' THEN 'pending' ELSE 'paid' END
+           WHERE id = ? AND user_id = ?`,
+          [req.params.id, req.userId]
+        );
       }
       res.json({ ok: true });
     });

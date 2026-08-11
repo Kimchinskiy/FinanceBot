@@ -25,8 +25,19 @@ export default function Settings() {
   const [cash, setCash] = useState(findAccountByName(state.accounts, 'Наличные')?.balance ?? '');
   const [card, setCard] = useState(findAccountByName(state.accounts, 'Карта')?.balance ?? '');
   const [salaryDay, setSalaryDay] = useState(state.salary.day || '');
-  const [salaryAmount, setSalaryAmount] = useState(state.salary.amount || '');
   const [salaryPeriod, setSalaryPeriod] = useState(state.salary.period || 'monthly');
+  const [salaryAnchorDate, setSalaryAnchorDate] = useState(state.salary.anchorDate || '');
+
+  useEffect(() => {
+    setSalaryDay(state.salary.day || '');
+    setSalaryPeriod(state.salary.period || 'monthly');
+    setSalaryAnchorDate(state.salary.anchorDate || '');
+  }, [state.salary]);
+
+  useEffect(() => {
+    setCash(findAccountByName(state.accounts, 'Наличные')?.balance ?? '');
+    setCard(findAccountByName(state.accounts, 'Карта')?.balance ?? '');
+  }, [state.accounts]);
   const [newIncomeCat, setNewIncomeCat] = useState('');
   const [newExpenseCat, setNewExpenseCat] = useState('');
   const [newRuleAmount, setNewRuleAmount] = useState('');
@@ -101,8 +112,8 @@ export default function Settings() {
   const saveSalary = async () => {
     const salary = {
       day: parseInt(salaryDay) || null,
-      amount: parseFloat(salaryAmount) || 0,
       period: salaryPeriod,
+      anchorDate: salaryPeriod === 'biweekly' ? (salaryAnchorDate || null) : null,
     };
     update({ salary });
     await api('PUT', '/settings/salary', { value: salary });
@@ -163,8 +174,8 @@ export default function Settings() {
         for (const i of state.incomes) await api('DELETE', `/incomes/${i.id}`);
         for (const e of state.expenses) await api('DELETE', `/expenses/${e.id}`);
         for (const m of state.mandatory) await api('DELETE', `/mandatory/${m.id}`);
-        update({ salary: { day: null, amount: 0, period: 'monthly' } });
-        await api('PUT', '/settings/salary', { value: { day: null, amount: 0, period: 'monthly' } });
+        update({ salary: { day: null, period: 'monthly' } });
+        await api('PUT', '/settings/salary', { value: { day: null, period: 'monthly' } });
         await api('PUT', '/settings/income_categories', { value: DEFAULT_INCOME_CATS });
         await api('PUT', '/settings/expense_categories', { value: DEFAULT_EXPENSE_CATS });
         await reload('incomes'); await reload('expenses'); await reload('mandatory');
@@ -207,15 +218,23 @@ export default function Settings() {
       <div className="panel">
         <div className="panel-header"><span>💼 Зарплата</span></div>
         <div className="settings-form">
-          <label>День выплаты ЗП (1–31)</label>
-          <input type="number" className="input-field" placeholder="5" min="1" max="31" value={salaryDay} onChange={(e) => setSalaryDay(e.target.value)} />
-          <label>Размер ЗП (₽)</label>
-          <input type="number" className="input-field" placeholder="0" value={salaryAmount} onChange={(e) => setSalaryAmount(e.target.value)} />
           <label>Периодичность</label>
           <select className="input-field" value={salaryPeriod} onChange={(e) => setSalaryPeriod(e.target.value)}>
             <option value="monthly">Ежемесячно</option>
             <option value="biweekly">Каждые 2 недели</option>
           </select>
+          {salaryPeriod === 'monthly' ? (
+            <>
+              <label>День выплаты ЗП (1–31)</label>
+              <input type="number" className="input-field" placeholder="5" min="1" max="31" value={salaryDay} onChange={(e) => setSalaryDay(e.target.value)} />
+            </>
+          ) : (
+            <>
+              <label>Дата ближайшей выплаты</label>
+              <input type="date" className="input-field" value={salaryAnchorDate} onChange={(e) => setSalaryAnchorDate(e.target.value)} />
+              <p className="text-muted">От этой даты будем отсчитывать каждые 2 недели.</p>
+            </>
+          )}
           <button className="btn-primary" onClick={saveSalary}>Сохранить</button>
         </div>
       </div>

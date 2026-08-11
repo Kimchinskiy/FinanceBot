@@ -157,6 +157,10 @@ const columnMigrations = [
   // Цена/сумма покупки и дата открытия — нужны для расчёта % доходности
   { table: 'accounts', column: 'cost_basis',   def: `cost_basis REAL` },
   { table: 'accounts', column: 'purchased_at', def: `purchased_at TEXT` },
+  // Привязка к записи в расходах, созданной при отметке «оплачено» —
+  // нужна, чтобы при отмене отметки удалить именно эту операцию, а не гадать
+  { table: 'mandatory_payments', column: 'linked_expense_id', def: `linked_expense_id TEXT` },
+  { table: 'debts', column: 'linked_expense_id', def: `linked_expense_id TEXT` },
 ];
 
 function columnExists(table, column) {

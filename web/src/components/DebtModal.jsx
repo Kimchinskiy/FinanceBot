@@ -81,13 +81,12 @@ export default function DebtModal({ open, editing, onClose, onSaved, toast }) {
             <label>Заметка</label>
             <input type="text" className="input-field" placeholder="Комментарий" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
-          <div className="form-group">
-            <label>Статус</label>
-            <select className="input-field" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="pending">Активен</option>
-              <option value="paid">Закрыт</option>
-            </select>
-          </div>
+          {editing && (
+            <div className="form-group">
+              <label>Статус</label>
+              <p className="text-muted">{status === 'paid' ? 'Закрыт' : 'Активен'} — меняется кнопкой «Отметить оплаченным» в списке, не здесь (иначе баланс счёта не пересчитается).</p>
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <button className="btn-outline" onClick={onClose}>Отмена</button>

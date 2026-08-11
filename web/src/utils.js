@@ -76,8 +76,19 @@ export function getCategoryColor(name) {
 }
 
 export function getNextSalaryDate(salary) {
-  if (!salary.day) return null;
   const today = nowVladivostok();
+
+  if (salary.period === 'biweekly') {
+    if (!salary.anchorDate) return null;
+    const anchor = new Date(salary.anchorDate + 'T00:00:00Z');
+    const dayMs = 24 * 60 * 60 * 1000;
+    const periods = Math.max(0, Math.ceil((today - anchor) / (14 * dayMs)));
+    let next = new Date(anchor.getTime() + periods * 14 * dayMs);
+    if (next <= today) next = new Date(next.getTime() + 14 * dayMs);
+    return next;
+  }
+
+  if (!salary.day) return null;
   const day = salary.day;
   let next = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), day));
   if (next <= today) next = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, day));
