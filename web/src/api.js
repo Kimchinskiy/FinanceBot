@@ -32,6 +32,7 @@ export async function api(method, path, body) {
   });
   if (res.status === 401) {
     clearToken();
+    localStorage.removeItem(USER_KEY);
     throw new Error('unauthorized');
   }
   const data = await res.json().catch(() => ({}));

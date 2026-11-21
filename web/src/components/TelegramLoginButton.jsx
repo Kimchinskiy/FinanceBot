@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 
 // Официальный Telegram Login Widget.
 // username — @username бота (без @). onAuth(user) вызывается при успехе.
-export default function TelegramLoginButton({ username = 'fiiinaaanceee_bot', onAuth, buttonSize = 'large' }) {
+const DEFAULT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'fiiinaaanceee_bot';
+
+export default function TelegramLoginButton({ username = DEFAULT_USERNAME, onAuth, buttonSize = 'large' }) {
   const ref = useRef(null);
 
   useEffect(() => {

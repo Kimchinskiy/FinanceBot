@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_insecure_secret_change_me';
 const TOKEN_TTL = '30d';
 const BOT_TOKEN = process.env.BOT_TOKEN;
+const TELEGRAM_AUTH_MAX_AGE_SEC = 24 * 60 * 60;
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -67,19 +68,23 @@ function authRequired(req, res, next) {
   }
 }
 
-// Проверка подписи Telegram Login Widget
-// data_check_string = отсортированные "key=value" (кроме hash)
-// secret = HMAC_SHA256("WebAppData", bot_token); hash = HMAC_SHA256(secret, data_check_string)
+// Проверка подписи Telegram Login Widget.
+// Для Login Widget secret = SHA256(bot_token), в отличие от Mini App,
+// где используется HMAC_SHA256("WebAppData", bot_token).
 function verifyTelegramHash(data) {
   if (!BOT_TOKEN) return false;
   const { hash, ...rest } = data;
   if (!hash) return false;
+  const authDate = Number(rest.auth_date);
+  if (!Number.isInteger(authDate) || Math.abs(Math.floor(Date.now() / 1000) - authDate) > TELEGRAM_AUTH_MAX_AGE_SEC) {
+    return false;
+  }
   const checkString = Object.keys(rest)
     .filter(k => rest[k] !== undefined && rest[k] !== null && rest[k] !== '')
     .sort()
     .map(k => `${k}=${rest[k]}`)
     .join('\n');
-  const secret = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
+  const secret = crypto.createHash('sha256').update(BOT_TOKEN).digest();
   const computed = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
   const a = Buffer.from(computed, 'hex');
   const b = Buffer.from(String(hash), 'hex');
@@ -171,6 +176,8 @@ router.post('/telegram', async (req, res) => {
     if (m) {
       try {
         const payload = verifyToken(m[1]);
+        const existing = await query('SELECT id FROM users WHERE tg_id = ? AND id != ?', [tgId, payload.sub]);
+        if (existing.rows.length) return res.status(409).json({ error: 'Этот Telegram уже привязан к другому аккаунту' });
         await query('UPDATE users SET tg_id = ? WHERE id = ?', [tgId, payload.sub]);
         const r = await query('SELECT * FROM users WHERE id = ?', [payload.sub]);
         const user = r.rows[0];

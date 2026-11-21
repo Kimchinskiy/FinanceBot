@@ -4,7 +4,7 @@ import { api } from '../api.js';
 import { fmt, currentMonth, getCategoryEmoji, sourceLabel, typeLabel, getNextSalaryDate, daysUntilSalary, fmtDate, fmtDateTime, findAccountByName, sumBalances, spendableTotal, investTotal } from '../utils.js';
 
 export default function Dashboard() {
-  const { state } = useStore();
+  const { state, user } = useStore();
   const [summaryTips, setSummaryTips] = useState(null);
 
   useEffect(() => {
@@ -46,6 +46,17 @@ export default function Dashboard() {
 
   return (
     <>
+      <div className="dashboard-intro">
+        <div>
+          <div className="dashboard-eyebrow">ФИНАНСЫ · ОБЗОР</div>
+          <h1 className="dashboard-title">Добрый день{user?.first_name ? `, ${user.first_name}` : ''} 👋</h1>
+          <p className="dashboard-subtitle">Следите за деньгами и принимайте решения спокойнее.</p>
+        </div>
+        <div className="dashboard-actions">
+          <button className="btn-outline dashboard-action" data-action="add-income">＋ Доход</button>
+          <button className="btn-primary dashboard-action" data-action="add-expense">＋ Расход</button>
+        </div>
+      </div>
       <div className="cards-grid">
         <div className="card card-balance card-green">
           <div className="card-icon">💵</div>
@@ -124,7 +135,12 @@ export default function Dashboard() {
           </div>
           <div className="transactions-list">
             {all.length === 0 ? (
-              <div className="empty-state">Нет операций. Добавьте первую!</div>
+              <div className="empty-state empty-action-state">
+                <span className="empty-state-icon">🧾</span>
+                <strong>Пока нет операций</strong>
+                <span>Добавьте первую, чтобы начать вести учёт.</span>
+                <button className="link-btn" data-action="add-expense">Добавить расход →</button>
+              </div>
             ) : all.map((t, i) => (
               <div key={i} className={`tx-item tx-${t.kind}`}>
                 <div className="tx-icon">{t.kind === 'income' ? '📈' : getCategoryEmoji(t.category)}</div>
@@ -147,7 +163,12 @@ export default function Dashboard() {
           </div>
           <div className="mandatory-list">
             {mandItems.length === 0 ? (
-              <div className="empty-state">Нет обязательных платежей</div>
+              <div className="empty-state empty-action-state">
+                <span className="empty-state-icon">📅</span>
+                <strong>Платежей пока нет</strong>
+                <span>Добавьте регулярный платёж, чтобы не забыть о нём.</span>
+                <button className="link-btn" data-action="add-mandatory">Добавить платёж →</button>
+              </div>
             ) : mandItems.map(m => (
               <div key={m.id} className="m-item">
                 <div>

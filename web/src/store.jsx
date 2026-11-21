@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { api, getToken, setSession, clearToken } from './api.js';
+import { api, getToken, getUser, setSession, clearToken } from './api.js';
 import { DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS } from './utils.js';
 import { setThemeMode } from './theme.js';
 
@@ -7,7 +7,7 @@ const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
   const [token, setTokenState] = useState(getToken());
-  const [user, setUserState] = useState(null);
+  const [user, setUserState] = useState(getUser());
 
   // Глобальные toast-уведомления — доступны из любого компонента и из
   // самого стора (например, при ошибке фонового loadAll()), без прокидывания
@@ -129,11 +129,13 @@ export function StoreProvider({ children }) {
     const headers = { 'Content-Type': 'application/json' };
     const t = getToken();
     if (t) headers['Authorization'] = 'Bearer ' + t;
-    const res = await fetch('/api/auth/telegram', {
+    const response = await fetch('/api/auth/telegram', {
       method: 'POST',
       headers,
       body: JSON.stringify(tgData),
-    }).then(r => r.json());
+    });
+    const res = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(res.error || 'Ошибка входа через Telegram');
     if (res.token) {
       setSession(res.token, res.user);
       setTokenState(res.token);
