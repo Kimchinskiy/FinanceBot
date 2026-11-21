@@ -43,6 +43,11 @@ export default function Dashboard() {
   ].sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 8);
 
   const mandItems = state.mandatory.slice(0, 5);
+  const budgetItems = Object.entries(state.budgets || {}).map(([category, limit]) => {
+    const spent = thisExpense.filter(e => e.category === category).reduce((s, e) => s + Number(e.amount), 0);
+    const amount = Number(limit);
+    return { category, limit: amount, spent, percent: amount ? Math.round(spent / amount * 100) : 0 };
+  }).filter(b => b.limit > 0);
 
   return (
     <>
@@ -126,6 +131,17 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {budgetItems.length > 0 && <div className="panel budget-panel">
+        <div className="panel-header"><span>📊 Бюджеты этого месяца</span><button className="link-btn" data-nav="settings">Настроить →</button></div>
+        <div className="budget-list">
+          {budgetItems.map(b => <div className="budget-row" key={b.category}>
+            <div className="budget-row-top"><span>{b.category}</span><span className={b.percent > 100 ? 'budget-over' : ''}>{fmt(b.spent)} из {fmt(b.limit)}</span></div>
+            <div className="budget-track"><div className={`budget-fill ${b.percent > 100 ? 'over' : b.percent >= 80 ? 'warning' : ''}`} style={{ width: `${Math.min(b.percent, 100)}%` }} /></div>
+            <div className="budget-caption">{b.percent > 100 ? `Превышение на ${fmt(b.spent - b.limit)}` : `${b.percent}% использовано`}</div>
+          </div>)}
+        </div>
+      </div>}
 
       <div className="two-col">
         <div className="panel">

@@ -39,6 +39,7 @@ export function StoreProvider({ children }) {
     incomeCategories: [...DEFAULT_INCOME_CATS],
     expenseCategories: [...DEFAULT_EXPENSE_CATS],
     categoryRules: [],
+    budgets: {},
     chatMessages: [],
   });
   const [loading, setLoading] = useState(false);
@@ -89,6 +90,9 @@ export function StoreProvider({ children }) {
         categoryRules: settings.category_rules
           ? (typeof settings.category_rules === 'string' ? JSON.parse(settings.category_rules) : settings.category_rules)
           : prev.categoryRules,
+        budgets: settings.budgets
+          ? (typeof settings.budgets === 'string' ? JSON.parse(settings.budgets) : settings.budgets)
+          : prev.budgets,
       }));
     } catch (e) {
       console.error('Load error', e);

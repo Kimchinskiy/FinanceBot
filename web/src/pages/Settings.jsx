@@ -42,6 +42,13 @@ export default function Settings() {
   const [newExpenseCat, setNewExpenseCat] = useState('');
   const [newRuleAmount, setNewRuleAmount] = useState('');
   const [newRuleCategory, setNewRuleCategory] = useState(state.expenseCategories[0] || '');
+  const [budgetDraft, setBudgetDraft] = useState(state.budgets || {});
+  useEffect(() => setBudgetDraft(state.budgets || {}), [state.budgets]);
+  const saveBudgets = async () => {
+    const cleaned = Object.fromEntries(Object.entries(budgetDraft).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)]));
+    try { await api('PUT', '/settings/budgets', { value: cleaned }); update({ budgets: cleaned }); toast('Бюджеты сохранены'); }
+    catch { toast('Ошибка сохранения бюджетов', '#ff3b30'); }
+  };
 
   const [themeMode, setThemeModeState] = useState(getThemeMode());
   const changeTheme = async (mode) => {
@@ -290,6 +297,22 @@ export default function Settings() {
             </select>
             <button className="btn-outline" onClick={addCategoryRule}>+</button>
           </div>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header"><span>📊 Бюджеты по категориям</span></div>
+        <div className="settings-form">
+          <p className="text-muted">Месячный лимит расходов. Оставьте поле пустым, если лимит не нужен.</p>
+          <div className="budget-settings-list">
+            {state.expenseCategories.map(category => (
+              <label key={category} className="budget-setting-row">
+                <span>{category}</span>
+                <input type="number" min="0" inputMode="decimal" className="input-field" placeholder="Без лимита" value={budgetDraft[category] ?? ''} onChange={e => setBudgetDraft(b => ({ ...b, [category]: e.target.value }))} />
+              </label>
+            ))}
+          </div>
+          <button className="btn-primary" onClick={saveBudgets}>Сохранить бюджеты</button>
         </div>
       </div>
 
