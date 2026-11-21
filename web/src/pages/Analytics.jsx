@@ -92,6 +92,13 @@ export default function Analytics() {
 
   return (
     <>
+      <div className="page-intro analytics-intro">
+        <div>
+          <div className="dashboard-eyebrow">АНАЛИТИКА</div>
+          <h1 className="dashboard-title">Картина ваших финансов</h1>
+          <p className="dashboard-subtitle">Сравнивайте доходы, расходы и динамику баланса.</p>
+        </div>
+      </div>
       <div className="analytics-period">
         <label>Период:</label>
         <select className="filter-select" value={period} onChange={(e) => setPeriod(e.target.value)}>

@@ -412,6 +412,8 @@ body {
 .dashboard-subtitle { color: var(--text-secondary); font-size: 14px; margin-top: 7px; }
 .dashboard-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .dashboard-action { white-space: nowrap; }
+.page-intro { margin: 6px 2px 18px; }
+.analytics-intro { margin-bottom: 10px; }
 
 .cards-grid {
   display: grid;
@@ -1001,6 +1003,12 @@ body {
 }
 .tab-btn:hover { color: var(--text-primary); }
 .tab-btn.active { color: #fff; background: var(--accent); }
+.amount-label { color: var(--text-primary) !important; font-weight: 600 !important; }
+.amount-input { font-size: 30px; font-weight: 700; height: 58px; letter-spacing: -0.04em; }
+.amount-input::placeholder { color: var(--text-muted); opacity: .55; }
+.amount-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+.amount-preset { border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-secondary); border-radius: 999px; padding: 6px 10px; font: inherit; font-size: 12px; cursor: pointer; transition: all var(--trans); }
+.amount-preset:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
 
 /* ===== SOURCE TOGGLE (рычаг Наличные/Безнал) ===== */
 .source-toggle {
@@ -1159,6 +1167,9 @@ body {
 
   /* Modals full-height friendly */
   .modal { max-height: 90vh; overflow-y: auto; }
+  .modal-footer { position: sticky; bottom: 0; background: var(--bg-surface); border-top: 1px solid var(--border); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  .modal-footer > button { flex: 1; }
+  .amount-input { font-size: 28px; }
 
   /* ── Income / Expense tables -> mobile cards ── */
   .table-wrap { overflow-x: visible; }

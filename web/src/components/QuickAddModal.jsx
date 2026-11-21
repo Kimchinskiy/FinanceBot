@@ -107,8 +107,13 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
             <button className={`tab-btn ${modalType === 'income' ? 'active' : ''}`} onClick={() => { setModalType('income'); setCategory(state.incomeCategories[0] || ''); }}>📈 Доход</button>
           </div>
           <div className="form-group">
-            <label>Сумма (₽)</label>
-            <input type="number" className="input-field" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <label className="amount-label">Сумма (₽)</label>
+            <input type="number" inputMode="decimal" autoFocus className="input-field amount-input" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <div className="amount-presets" aria-label="Быстрый выбор суммы">
+              {[500, 1000, 5000].map(value => (
+                <button key={value} type="button" className="amount-preset" onClick={() => setAmount(String(value))}>{value.toLocaleString('ru-RU')} ₽</button>
+              ))}
+            </div>
           </div>
           <div className="form-group">
             <label>Категория</label>
