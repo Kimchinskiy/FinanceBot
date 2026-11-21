@@ -13,9 +13,11 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
   const [date, setDate] = useState(now());
   const [saving, setSaving] = useState(false);
   const [categoryTouched, setCategoryTouched] = useState(false);
+  const [lastOperation, setLastOperation] = useState(null);
 
   useEffect(() => {
     if (open) {
+      try { setLastOperation(JSON.parse(localStorage.getItem('fb_last_operation'))); } catch { setLastOperation(null); }
       if (editing) {
         setModalType(editing.kind);
         setAmount(String(editing.amount));
@@ -81,6 +83,7 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
         } else {
           await api('POST', '/expenses', body);
         }
+        localStorage.setItem('fb_last_operation', JSON.stringify({ modalType, category, source, desc }));
         toast(`${modalType === 'income' ? 'Доход' : 'Расход'} добавлен!`);
       }
       onSaved();
@@ -120,6 +123,9 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
             <select className="input-field" value={category} onChange={(e) => { setCategory(e.target.value); setCategoryTouched(true); }}>
               {cats.map(c => <option key={c}>{c}</option>)}
             </select>
+            <div className="category-chips" aria-label="Популярные категории">
+              {cats.slice(0, 6).map(c => <button type="button" key={c} className={`category-chip ${category === c ? 'active' : ''}`} onClick={() => { setCategory(c); setCategoryTouched(true); }}>{c}</button>)}
+            </div>
           </div>
           <div className="form-group">
             <label>Счёт (откуда/куда)</label>
@@ -139,6 +145,7 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
           </div>
         </div>
         <div className="modal-footer">
+          {!isEdit && lastOperation && <button className="btn-outline repeat-btn" onClick={() => { setModalType(lastOperation.modalType || 'expense'); setCategory(lastOperation.category || category); setSource(lastOperation.source || source); setDesc(lastOperation.desc || ''); setAmount(''); }}>Повторить</button>}
           <button className="btn-outline" onClick={onClose}>Отмена</button>
           <button className="btn-primary" onClick={save} disabled={saving}>{saving ? 'Сохранение…' : (isEdit ? 'Сохранить' : 'Сохранить')}</button>
         </div>

@@ -1009,6 +1009,10 @@ body {
 .amount-presets { display: flex; gap: 6px; flex-wrap: wrap; }
 .amount-preset { border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-secondary); border-radius: 999px; padding: 6px 10px; font: inherit; font-size: 12px; cursor: pointer; transition: all var(--trans); }
 .amount-preset:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+.category-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.category-chip { border: 1px solid var(--border); background: transparent; color: var(--text-secondary); border-radius: 999px; padding: 6px 9px; font: inherit; font-size: 12px; cursor: pointer; transition: all var(--trans); }
+.category-chip:hover, .category-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.repeat-btn { margin-right: auto; }
 
 /* ===== SOURCE TOGGLE (рычаг Наличные/Безнал) ===== */
 .source-toggle {
