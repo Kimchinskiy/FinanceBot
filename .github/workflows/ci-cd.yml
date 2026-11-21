@@ -54,6 +54,7 @@ jobs:
             set -e
             cd "${{ secrets.VPS_APP_DIR }}"
             git checkout main
+            git stash push --include-untracked -m "ci-cd-predeploy-$(date +%Y%m%d-%H%M%S)" || true
             git pull --ff-only origin main
             docker compose up -d --build --force-recreate financebot
             docker image prune -f
