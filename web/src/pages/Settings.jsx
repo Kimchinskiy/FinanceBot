@@ -63,6 +63,8 @@ export default function Settings() {
   const [gmModel, setGmModel] = useState('gemini-2.0-flash');
   const [hasOrKey, setHasOrKey] = useState(false);
   const [hasGmKey, setHasGmKey] = useState(false);
+  const [gmail, setGmail] = useState({ configured: false, connected: false, email: null });
+  const [gmailBusy, setGmailBusy] = useState(false);
 
   useEffect(() => {
     api('GET', '/ai/config').then(cfg => {
@@ -73,6 +75,29 @@ export default function Settings() {
       setHasGmKey(!!cfg.hasGeminiKey);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    api('GET', '/integrations/gmail/status').then(setGmail).catch(() => {});
+  }, []);
+
+  const connectGmail = async () => {
+    setGmailBusy(true);
+    try {
+      const { url } = await api('GET', '/integrations/gmail/connect');
+      window.location.assign(url);
+    } catch (e) {
+      toast(e.message || 'Не удалось открыть подключение Gmail', '#ff3b30');
+      setGmailBusy(false);
+    }
+  };
+
+  const disconnectGmail = async () => {
+    try {
+      await api('DELETE', '/integrations/gmail/disconnect');
+      setGmail({ ...gmail, connected: false, email: null });
+      toast('Gmail отключён');
+    } catch { toast('Ошибка отключения Gmail', '#ff3b30'); }
+  };
 
   const changeProvider = async (p) => {
     setAiProvider(p);
@@ -389,6 +414,24 @@ export default function Settings() {
               catch (e) { toast(e.message || 'Ошибка привязки', '#ff3b30'); }
             }} />
           )}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header"><span>📬 Gmail и чеки</span></div>
+        <div className="settings-form">
+          <p className="text-muted">Finly сможет находить письма с чеками и готовить операции на проверку. Доступ запрашивается только для чтения почты.</p>
+          {gmail.connected ? (
+            <>
+              <p className="text-muted">✅ Подключён{gmail.email ? `: ${gmail.email}` : ''}</p>
+              <button className="btn-outline" onClick={disconnectGmail}>Отключить Gmail</button>
+            </>
+          ) : (
+            <button className="btn-primary" onClick={connectGmail} disabled={gmailBusy || !gmail.configured}>
+              {gmailBusy ? 'Открываем Google…' : gmail.configured ? 'Подключить Gmail' : 'Gmail пока не настроен'}
+            </button>
+          )}
+          {!gmail.configured && <p className="text-muted" style={{ fontSize: 11, marginTop: 6 }}>Администратору нужно добавить OAuth-параметры на сервер.</p>}
         </div>
       </div>
 

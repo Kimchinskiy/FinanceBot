@@ -133,6 +133,17 @@ const statements = [
     created_at  TEXT DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE INDEX IF NOT EXISTS idx_cct_card ON credit_card_transactions (card_id)`,
+
+  `CREATE TABLE IF NOT EXISTS gmail_connections (
+    user_id        TEXT PRIMARY KEY,
+    access_token   TEXT,
+    refresh_token  TEXT NOT NULL,
+    token_expiry   INTEGER,
+    email          TEXT,
+    created_at     TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
 ];
 
 // Новые колонки (добавляются идемпотентно). SQLite не поддерживает

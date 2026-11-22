@@ -14,6 +14,7 @@ const { router: quotesRouter } = require('./quotes');
 const { runMigration } = require('./migrate');
 const { currentMonthVladivostok, nowVladivostokIso } = require('./timezone');
 const { withUserLock } = require('./lock');
+const gmailRouter = require('./gmail');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -79,6 +80,10 @@ function uid() {
 
 /* ──────────────────── AUTH (публично) ──────────────────── */
 app.use('/api/auth', authRouter);
+// OAuth callback приходит от Google без Bearer-токена; userId передаётся
+// внутри подписанного state и проверяется в gmail.js.
+app.use('/api/integrations/gmail/callback', gmailRouter);
+app.use('/api/integrations/gmail', authRequired, gmailRouter);
 
 /* ──────────────────── SETTINGS (per-user) ──────────────────── */
 app.get('/api/settings', authRequired, async (req, res) => {
