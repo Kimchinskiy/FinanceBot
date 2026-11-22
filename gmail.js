@@ -51,7 +51,9 @@ router.get('/connect', (req, res) => {
   res.json({ url });
 });
 
-router.get('/callback', async (req, res) => {
+// Этот роут монтируется сервером отдельно на /api/integrations/gmail/callback.
+// Поэтому здесь путь корневой, иначе получится /callback/callback.
+router.get('/', async (req, res) => {
   try {
     const payload = JSON.parse(decrypt(req.query.state || ''));
     if (!payload.userId || payload.exp < Date.now()) throw new Error('OAuth state expired');
