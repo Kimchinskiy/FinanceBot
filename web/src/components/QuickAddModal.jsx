@@ -131,8 +131,8 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
           <div className="form-group">
             <label>Счёт (откуда/куда)</label>
               <div className={`source-toggle ${source === 'Карта' ? 'is-card' : ''}`} role="tablist">
-              <button type="button" className={`source-opt ${source === 'Наличные' ? 'active' : ''}`} onClick={() => setSource('Наличные')}>💵 Наличные</button>
-              <button type="button" className={`source-opt ${source === 'Карта' ? 'active' : ''}`} onClick={() => setSource('Карта')}>💳 Безнал</button>
+              <button type="button" className={`source-opt ${source === 'Наличные' ? 'active' : ''}`} onClick={() => setSource('Наличные')}><Icon name="cash" /> Наличные</button>
+              <button type="button" className={`source-opt ${source === 'Карта' ? 'active' : ''}`} onClick={() => setSource('Карта')}><Icon name="card" /> Безнал</button>
               <span className="source-thumb" aria-hidden="true"></span>
             </div>
           </div>

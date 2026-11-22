@@ -128,9 +128,7 @@ export function getCategoryEmoji(cat) {
 }
 
 export function sourceLabel(src) {
-  const s = src || 'Наличные';
-  const emoji = { 'Наличные': '💵', 'Карта': '💳' }[s] || '💰';
-  return `${emoji} ${s}`;
+  return src || 'Наличные';
 }
 
 export function typeLabel(t) {

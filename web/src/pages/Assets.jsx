@@ -3,6 +3,7 @@ import { useStore } from '../store.jsx';
 import { api } from '../api.js';
 import { fmt, sumBalances, accountsByType, assetEmoji, fmtDateTime, fmtPercent, returnPct, depositAccrued } from '../utils.js';
 import AssetModal from '../components/AssetModal.jsx';
+import Icon from '../components/Icon.jsx';
 
 export default function Assets() {
   const { state, reload, quotesConfig, toast, confirmAction } = useStore();
@@ -90,7 +91,7 @@ export default function Assets() {
     <>
       <div className="page-actions">
         <button className="btn-primary" onClick={() => openAdd('deposit')}>+ Добавить актив</button>
-        <button className="btn-outline" onClick={refreshPrices} disabled={refreshing}>{refreshing ? '⏳ Обновляю…' : '🔄 Обновить котировки'}</button>
+        <button className="btn-outline" onClick={refreshPrices} disabled={refreshing}><Icon name="refresh" /> {refreshing ? 'Обновляю…' : 'Обновить котировки'}</button>
         <span className="assets-updated">{updText}</span>
       </div>
 
@@ -108,7 +109,7 @@ export default function Assets() {
       </div>
 
       <div className="panel asset-module">
-        <div className="panel-header"><span>🏦 Вклады и счета</span><button className="link-btn" onClick={() => openAdd('deposit')}>+ Вклад</button></div>
+        <div className="panel-header"><span><Icon name="building" /> Вклады и счета</span><button className="link-btn" onClick={() => openAdd('deposit')}>+ Вклад</button></div>
         <div className="asset-list">{renderList('deposit')}</div>
       </div>
       <div className="panel asset-module">
@@ -116,7 +117,7 @@ export default function Assets() {
         <div className="asset-list">{renderList('crypto')}</div>
       </div>
       <div className="panel asset-module">
-        <div className="panel-header"><span>📊 Акции / Брокер</span><button className="link-btn" onClick={() => openAdd('broker')}>+ Акция</button></div>
+        <div className="panel-header"><span><Icon name="chart" /> Акции / Брокер</span><button className="link-btn" onClick={() => openAdd('broker')}>+ Акция</button></div>
         <div className="asset-list">{renderList('broker')}</div>
       </div>
 

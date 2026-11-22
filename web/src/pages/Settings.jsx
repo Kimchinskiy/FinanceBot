@@ -353,7 +353,7 @@ export default function Settings() {
       </div>
 
       <div className="panel">
-        <div className="panel-header"><span>📊 Бюджеты по категориям</span></div>
+        <div className="panel-header"><span><Icon name="chart" /> Бюджеты по категориям</span></div>
         <div className="settings-form">
           <p className="text-muted">Месячный лимит расходов. Оставьте поле пустым, если лимит не нужен.</p>
           <div className="budget-settings-list">
@@ -473,7 +473,7 @@ export default function Settings() {
       <div className="panel panel-danger">
         <div className="panel-header"><span>⚠️ Данные</span></div>
         <div className="settings-form">
-          <button className="btn-danger" onClick={clearData}>🗑️ Очистить все данные</button>
+          <button className="btn-danger" onClick={clearData}><Icon name="trash" /> Очистить все данные</button>
         </div>
       </div>
 

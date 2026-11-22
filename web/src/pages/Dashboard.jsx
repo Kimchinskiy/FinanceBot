@@ -55,7 +55,7 @@ export default function Dashboard() {
       <div className="dashboard-intro">
         <div>
           <div className="dashboard-eyebrow">ФИНАНСЫ · ОБЗОР</div>
-          <h1 className="dashboard-title">Добрый день{user?.first_name ? `, ${user.first_name}` : ''} 👋</h1>
+          <h1 className="dashboard-title">Добрый день{user?.first_name ? `, ${user.first_name}` : ''}</h1>
           <p className="dashboard-subtitle">Следите за деньгами и принимайте решения спокойнее.</p>
         </div>
         <div className="dashboard-actions">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store.jsx';
 import { api } from '../api.js';
+import Icon from '../components/Icon.jsx';
 import { fmt, fmtDateTime } from '../utils.js';
 
 export default function CreditCards() {
@@ -199,8 +200,8 @@ export default function CreditCards() {
                   <div className="credit-card-bar-fill" style={{ width: Math.min(usagePct, 100) + '%' }}></div>
                 </div>
                 <div className="credit-card-actions-row">
-                  <button className="btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); openTxnModal(c, 'payment'); }}>💳 Оплатить</button>
-                  <button className="btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); openTxnModal(c, 'purchase'); }}>➕ Покупка</button>
+                  <button className="btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); openTxnModal(c, 'payment'); }}><Icon name="card" /> Оплатить</button>
+                  <button className="btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); openTxnModal(c, 'purchase'); }}><Icon name="up" /> Покупка</button>
                 </div>
               </div>
             );

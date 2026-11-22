@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store.jsx';
 import { api } from '../api.js';
 import { fmt, fmtDateTime, getCategoryEmoji, getCategoryColor, sourceLabel } from '../utils.js';
+import Icon from '../components/Icon.jsx';
 
 function populateMonths(data) {
   return [...new Set(data.map(d => d.datetime.slice(0, 7)))].sort().reverse();
@@ -59,8 +60,8 @@ export default function Operations({ onEdit }) {
 
       <div className="modal-tabs ops-tabs">
         <button className={`tab-btn ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>Все</button>
-        <button className={`tab-btn ${tab === 'income' ? 'active' : ''}`} onClick={() => setTab('income')}>📈 Доходы</button>
-        <button className={`tab-btn ${tab === 'expense' ? 'active' : ''}`} onClick={() => setTab('expense')}>📉 Расходы</button>
+        <button className={`tab-btn ${tab === 'income' ? 'active' : ''}`} onClick={() => setTab('income')}><Icon name="upTrend" /> Доходы</button>
+        <button className={`tab-btn ${tab === 'expense' ? 'active' : ''}`} onClick={() => setTab('expense')}><Icon name="downTrend" /> Расходы</button>
       </div>
 
       <div className="panel">
