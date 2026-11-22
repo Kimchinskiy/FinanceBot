@@ -253,7 +253,7 @@ export default function Settings() {
         <div className="settings-form">
           <p className="text-muted">«Авто» переключает тему по владивостокскому времени: светлая с 6:00 до 18:00, тёмная — в остальное время.</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {[{ v: 'auto', l: '🌓 Авто' }, { v: 'light', l: '☀️ Светлая' }, { v: 'dark', l: '🌙 Тёмная' }].map(o => (
+            {[{ v: 'auto', l: 'Авто' }, { v: 'light', l: 'Светлая' }, { v: 'dark', l: 'Тёмная' }].map(o => (
               <button key={o.v} type="button"
                 className={themeMode === o.v ? 'btn-primary btn-sm' : 'btn-outline btn-sm'}
                 onClick={() => changeTheme(o.v)}>{o.l}</button>
@@ -299,7 +299,7 @@ export default function Settings() {
       </div>
 
       <div className="panel">
-        <div className="panel-header"><span>🏷️ Категории доходов</span></div>
+        <div className="panel-header"><span><Icon name="tag" /> Категории доходов</span></div>
         <div className="settings-form">
           <div className="category-chips">
             {state.incomeCategories.map(c => (
@@ -314,7 +314,7 @@ export default function Settings() {
       </div>
 
       <div className="panel">
-        <div className="panel-header"><span>🏷️ Категории расходов</span></div>
+        <div className="panel-header"><span><Icon name="tag" /> Категории расходов</span></div>
         <div className="settings-form">
           <div className="category-chips">
             {state.expenseCategories.map(c => (
@@ -329,7 +329,7 @@ export default function Settings() {
       </div>
 
       <div className="panel">
-        <div className="panel-header"><span>🎯 Правила категорий по сумме</span></div>
+        <div className="panel-header"><span><Icon name="target" /> Правила категорий по сумме</span></div>
         <div className="settings-form">
           <p className="text-muted">При добавлении расхода на сумму до указанной категория подставится автоматически. Например: «до 70 ₽ → Транспорт».</p>
           {state.categoryRules.length > 0 && (
@@ -432,7 +432,7 @@ export default function Settings() {
         <div className="panel-header"><span><Icon name="message" /> Telegram</span></div>
         <div className="settings-form">
           <p className="text-muted">
-            {user?.tg_id ? '✅ Telegram привязан к аккаунту. Можно входить по кнопке «Войти через Telegram».'
+            {user?.tg_id ? 'Telegram привязан к аккаунту. Можно входить по кнопке «Войти через Telegram».'
                         : 'Привяжите Telegram, чтобы входить в один клик и получать напоминания о платежах.'}
           </p>
           {!user?.tg_id && (
@@ -450,7 +450,7 @@ export default function Settings() {
           <p className="text-muted">Finly сможет находить письма с чеками и готовить операции на проверку. Доступ запрашивается только для чтения почты.</p>
           {gmail.connected ? (
             <>
-              <p className="text-muted">✅ Подключён{gmail.email ? `: ${gmail.email}` : ''}</p>
+              <p className="text-muted">Подключён{gmail.email ? `: ${gmail.email}` : ''}</p>
               <button className="btn-outline" onClick={syncGmail} disabled={gmailBusy}>{gmailBusy ? 'Проверяем…' : 'Проверить новые чеки'}</button>
               {gmailDrafts.length > 0 && <div className="gmail-drafts">
                 <strong>Черновики чеков</strong>
@@ -471,14 +471,14 @@ export default function Settings() {
       </div>
 
       <div className="panel panel-danger">
-        <div className="panel-header"><span>⚠️ Данные</span></div>
+        <div className="panel-header"><span><Icon name="database" /> Данные</span></div>
         <div className="settings-form">
           <button className="btn-danger" onClick={clearData}><Icon name="trash" /> Очистить все данные</button>
         </div>
       </div>
 
       <div className="panel">
-        <div className="panel-header"><span>🔓 Сессия</span></div>
+        <div className="panel-header"><span><Icon name="settings" /> Сессия</span></div>
         <div className="settings-form">
           <button className="btn-outline" onClick={logout}>Выйти из аккаунта</button>
         </div>

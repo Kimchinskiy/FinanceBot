@@ -50,7 +50,7 @@ export default function Assets() {
 
       return (
         <div key={a.id} className="asset-item">
-          <div className="asset-icon">{assetEmoji(type)}</div>
+          <div className="asset-icon"><Icon name={type === 'deposit' ? 'building' : type === 'crypto' ? 'circleDollarSign' : 'chart'} /></div>
           <div className="asset-info">
             <div className="asset-name">{a.name}</div>
             <div className="asset-sub">{sub}</div>

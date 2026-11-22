@@ -11,7 +11,7 @@ import {
 const icons = { activity: Activity, archive: Archive, down: ArrowDownLeft, up: ArrowUpRight,
   analytics: BarChart3, bell: Bell, bot: Bot, briefcase: BriefcaseBusiness, building: Building2,
   calendar: CalendarDays, car: Car, chart: ChartNoAxesCombined, cash: CircleDollarSign,
-  card: CreditCard, database: Database, games: Dices, file: FileText, gift: Gift,
+  card: CreditCard, database: Database, games: Dices, file: FileText, gift: Gift, circleDollarSign: CircleDollarSign,
   health: HeartPulse, home: Home, invest: Landmark, laptop: Laptop, bulb: Lightbulb,
   message: MessageCircle, package: Package, palette: Palette, piggy: PiggyBank,
   plug: PlugZap, receipt: Receipt, refresh: RefreshCw, settings: Settings2,

@@ -122,7 +122,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="salary-bar-right">
-            <div className="days-chip">{days === 0 ? '🎉 Сегодня!' : `${days} дн.`}</div>
+            <div className="days-chip">{days === 0 ? 'Сегодня!' : `${days} дн.`}</div>
             <div className="salary-expected">{lastSalaryIncome ? fmt(lastSalaryIncome.amount) : ''}</div>
           </div>
         </div>

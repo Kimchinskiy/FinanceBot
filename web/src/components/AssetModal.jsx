@@ -174,9 +174,9 @@ export default function AssetModal({ open, type, editing, onClose, onSaved, toas
           <div className="form-group">
             <label>Тип актива</label>
             <select className="input-field" value={assetType} onChange={(e) => setAssetType(e.target.value)}>
-              <option value="deposit">🏦 Вклад / счёт</option>
+              <option value="deposit">Вклад / счёт</option>
               <option value="crypto">₿ Криптовалюта</option>
-              <option value="broker">📊 Акция / брокер</option>
+              <option value="broker">Акция / брокер</option>
             </select>
           </div>
 
