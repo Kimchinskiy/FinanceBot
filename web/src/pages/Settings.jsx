@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { findAccountByName, fmt, DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS } from '../utils.js';
 import TelegramLoginButton from '../components/TelegramLoginButton.jsx';
 import { getThemeMode, setThemeMode } from '../theme.js';
+import Icon from '../components/Icon.jsx';
 
 const OPENROUTER_MODEL_PRESETS = [
   'openai/gpt-4o-mini',
@@ -248,7 +249,7 @@ export default function Settings() {
     <>
     <div className="settings-grid">
       <div className="panel">
-        <div className="panel-header"><span>🎨 Тема</span></div>
+        <div className="panel-header"><span><Icon name="palette" /> Тема</span></div>
         <div className="settings-form">
           <p className="text-muted">«Авто» переключает тему по владивостокскому времени: светлая с 6:00 до 18:00, тёмная — в остальное время.</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -262,7 +263,7 @@ export default function Settings() {
       </div>
 
       <div className="panel">
-        <div className="panel-header"><span>💵 Балансы счетов</span></div>
+        <div className="panel-header"><span><Icon name="wallet" /> Балансы счетов</span></div>
         <div className="settings-form">
           <p className="text-muted">Стартовые балансы денег на каждый день. Доходы и расходы меняют их автоматически.</p>
           <label>Наличные (₽)</label>
@@ -274,7 +275,7 @@ export default function Settings() {
       </div>
 
       <div className="panel">
-        <div className="panel-header"><span>💼 Зарплата</span></div>
+        <div className="panel-header"><span><Icon name="briefcase" /> Зарплата</span></div>
         <div className="settings-form">
           <label>Периодичность</label>
           <select className="input-field" value={salaryPeriod} onChange={(e) => setSalaryPeriod(e.target.value)}>
@@ -368,7 +369,7 @@ export default function Settings() {
       </div>
 
       <div className="panel">
-        <div className="panel-header"><span>🧠 AI-помощник</span></div>
+        <div className="panel-header"><span><Icon name="bot" /> AI-помощник</span></div>
         <div className="settings-form">
           <p className="text-muted">Выберите провайдера, модель и укажите ключ API. Если ключ не задан — AI отвечает в базовом режиме.</p>
 
@@ -428,7 +429,7 @@ export default function Settings() {
 
     <div className="settings-row-3">
       <div className="panel">
-        <div className="panel-header"><span>💬 Telegram</span></div>
+        <div className="panel-header"><span><Icon name="message" /> Telegram</span></div>
         <div className="settings-form">
           <p className="text-muted">
             {user?.tg_id ? '✅ Telegram привязан к аккаунту. Можно входить по кнопке «Войти через Telegram».'
@@ -444,7 +445,7 @@ export default function Settings() {
       </div>
 
       <div className="panel">
-        <div className="panel-header"><span>📬 Gmail и чеки</span></div>
+        <div className="panel-header"><span><Icon name="receipt" /> Gmail и чеки</span></div>
         <div className="settings-form">
           <p className="text-muted">Finly сможет находить письма с чеками и готовить операции на проверку. Доступ запрашивается только для чтения почты.</p>
           {gmail.connected ? (

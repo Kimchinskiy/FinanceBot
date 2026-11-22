@@ -17,6 +17,7 @@ import Settings from './pages/Settings.jsx';
 import CreditCards from './pages/CreditCards.jsx';
 import ChatAI from './pages/ChatAI.jsx';
 import TelegramLoginButton from './components/TelegramLoginButton.jsx';
+import Icon from './components/Icon.jsx';
 import {
   NavigationMenu,
   NavigationMenuList,
@@ -256,7 +257,7 @@ function AuthScreen({ onAuth, onTelegram }) {
     <div className="auth-screen" style={{ display: 'flex' }}>
       <div className="auth-card">
         <div className="auth-logo">
-          <div className="logo-icon">💰</div>
+          <div className="logo-icon"><Icon name="wallet" size={22} /></div>
           <span className="logo-text">FinanceBot</span>
         </div>
         <p className="auth-sub">Войдите, чтобы продолжить</p>

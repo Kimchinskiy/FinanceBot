@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { useStore } from '../store.jsx';
 import { Message, MessageAvatar, MessageContent, MessageHeader, MessageFooter, MessageGroup } from '../components/chat/Message.jsx';
 import { Bubble, BubbleContent } from '../components/chat/Bubble.jsx';
+import Icon from '../components/Icon.jsx';
 
 function Avatar({ children }) {
   return (
@@ -15,7 +16,7 @@ function Avatar({ children }) {
 function WelcomeScreen({ onHint }) {
   return (
     <div className="chat-welcome">
-      <div className="chat-welcome-icon">🧠</div>
+      <div className="chat-welcome-icon"><Icon name="bot" size={48} strokeWidth={1.5} /></div>
       <p className="chat-welcome-title">Спросите о ваших финансах</p>
       <div className="chat-welcome-hints">
         <button type="button" onClick={() => onHint('Могу ли я купить робот-пылесос за 7000?')}>«Могу ли я купить робот-пылесос за 7000?»</button>
@@ -30,7 +31,7 @@ function TypingIndicator() {
   return (
     <Message align="start">
       <MessageAvatar>
-        <Avatar>🧠</Avatar>
+        <Avatar><Icon name="bot" /></Avatar>
       </MessageAvatar>
       <MessageContent>
         <MessageHeader>Финансовый AI</MessageHeader>
@@ -50,7 +51,7 @@ function ChatMessage({ message }) {
     <Message align={isUser ? 'end' : 'start'}>
       {!isUser && (
         <MessageAvatar>
-          <Avatar>🧠</Avatar>
+        <Avatar><Icon name="bot" /></Avatar>
         </MessageAvatar>
       )}
       <MessageContent>
@@ -106,7 +107,7 @@ export default function ChatAI() {
   return (
     <div className="panel chat-panel">
       <div className="panel-header">
-        <span>🤖 Финансовый AI-помощник</span>
+        <span><Icon name="bot" /> Финансовый AI-помощник</span>
         <span className="text-muted" style={{ fontSize: 12, marginLeft: 'auto' }}>
           анализирует всё: доходы, расходы, долги, кредитки
         </span>

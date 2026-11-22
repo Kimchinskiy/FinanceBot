@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store.jsx';
 import { api } from '../api.js';
+import Icon from './Icon.jsx';
 import { now, suggestCategory, matchCategoryRule } from '../utils.js';
 
 export default function QuickAddModal({ open, type, editing, onClose, onSaved, toast }) {
@@ -106,8 +107,8 @@ export default function QuickAddModal({ open, type, editing, onClose, onSaved, t
         </div>
         <div className="modal-body">
           <div className="modal-tabs" id="modal-tabs">
-            <button className={`tab-btn ${modalType === 'expense' ? 'active' : ''}`} onClick={() => { setModalType('expense'); setCategory(state.expenseCategories[0] || ''); }}>📉 Расход</button>
-            <button className={`tab-btn ${modalType === 'income' ? 'active' : ''}`} onClick={() => { setModalType('income'); setCategory(state.incomeCategories[0] || ''); }}>📈 Доход</button>
+            <button className={`tab-btn ${modalType === 'expense' ? 'active' : ''}`} onClick={() => { setModalType('expense'); setCategory(state.expenseCategories[0] || ''); }}><Icon name="downTrend" /> Расход</button>
+            <button className={`tab-btn ${modalType === 'income' ? 'active' : ''}`} onClick={() => { setModalType('income'); setCategory(state.incomeCategories[0] || ''); }}><Icon name="upTrend" /> Доход</button>
           </div>
           <div className="form-group">
             <label className="amount-label">Сумма (₽)</label>

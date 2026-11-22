@@ -533,6 +533,8 @@ body {
   flex-wrap: wrap;
   gap: 8px;
 }
+.panel-header > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.ui-icon { display: inline-block; vertical-align: middle; flex: 0 0 auto; }
 .chart-panel { margin-top: 0; }
 .chart-panel canvas { padding: 18px 22px 22px; }
 .panel-danger { border-color: var(--border); }

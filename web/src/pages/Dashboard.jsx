@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../store.jsx';
 import { api } from '../api.js';
 import { fmt, currentMonth, getCategoryEmoji, sourceLabel, typeLabel, getNextSalaryDate, daysUntilSalary, fmtDate, fmtDateTime, findAccountByName, sumBalances, spendableTotal, investTotal } from '../utils.js';
+import Icon, { CategoryIcon } from '../components/Icon.jsx';
 
 export default function Dashboard() {
   const { state, user } = useStore();
@@ -102,7 +103,7 @@ export default function Dashboard() {
 
       {summaryTips && summaryTips.length > 0 && (
         <div className="panel">
-          <div className="panel-header"><span>🧠 AI-сводка месяца</span></div>
+          <div className="panel-header"><span><Icon name="bot" /> AI-сводка месяца</span></div>
           <div className="settings-form">
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
               {summaryTips.map((t, i) => <li key={i} className="text-muted" style={{ fontSize: 14 }}>{t}</li>)}
@@ -114,7 +115,7 @@ export default function Dashboard() {
       {nextSalary && (
         <div className="salary-countdown-bar" style={{ display: 'flex' }}>
           <div className="salary-bar-left">
-            <span className="salary-icon">🗓️</span>
+            <span className="salary-icon"><Icon name="calendar" /></span>
             <div>
               <div className="salary-bar-title">До следующей зарплаты</div>
               <div className="salary-bar-sub">{fmtDate(nextSalary)}</div>
@@ -128,7 +129,7 @@ export default function Dashboard() {
       )}
 
       {budgetItems.length > 0 && <div className="panel budget-panel">
-        <div className="panel-header"><span>📊 Бюджеты этого месяца</span><button className="link-btn" data-nav="settings">Настроить →</button></div>
+        <div className="panel-header"><span><Icon name="chart" /> Бюджеты этого месяца</span><button className="link-btn" data-nav="settings">Настроить →</button></div>
         <div className="budget-list">
           {budgetItems.map(b => <div className="budget-row" key={b.category}>
             <div className="budget-row-top"><span>{b.category}</span><span className={b.percent > 100 ? 'budget-over' : ''}>{fmt(b.spent)} из {fmt(b.limit)}</span></div>
@@ -147,14 +148,14 @@ export default function Dashboard() {
           <div className="transactions-list">
             {all.length === 0 ? (
               <div className="empty-state empty-action-state">
-                <span className="empty-state-icon">🧾</span>
+                <span className="empty-state-icon"><Icon name="receipt" size={30} /></span>
                 <strong>Пока нет операций</strong>
                 <span>Добавьте первую, чтобы начать вести учёт.</span>
                 <button className="link-btn" data-action="add-expense">Добавить расход →</button>
               </div>
             ) : all.map((t, i) => (
               <div key={i} className={`tx-item tx-${t.kind}`}>
-                <div className="tx-icon">{t.kind === 'income' ? '📈' : getCategoryEmoji(t.category)}</div>
+              <div className="tx-icon">{t.kind === 'income' ? <Icon name="upTrend" /> : <CategoryIcon category={t.category} />}</div>
                 <div className="tx-info">
                   <div className="tx-name">{t.description || t.category}</div>
                   <div className="tx-cat">{t.category} · {sourceLabel(t.source)}</div>
@@ -175,7 +176,7 @@ export default function Dashboard() {
           <div className="mandatory-list">
             {mandItems.length === 0 ? (
               <div className="empty-state empty-action-state">
-                <span className="empty-state-icon">📅</span>
+                <span className="empty-state-icon"><Icon name="calendar" size={30} /></span>
                 <strong>Платежей пока нет</strong>
                 <span>Добавьте регулярный платёж, чтобы не забыть о нём.</span>
                 <button className="link-btn" data-action="add-mandatory">Добавить платёж →</button>
