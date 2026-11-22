@@ -111,6 +111,34 @@ body {
 .tg-login-btn { display: flex; justify-content: center; }
 .settings-form .tg-login-btn { margin-top: 4px; }
 
+.settings-commandbar {
+  position: sticky;
+  top: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.settings-commandbar-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.settings-commandbar-links { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.settings-commandbar-links::-webkit-scrollbar { display: none; }
+.settings-commandbar-links button {
+  border: 0; border-radius: 10px; padding: 8px 11px; white-space: nowrap;
+  background: transparent; color: var(--text-secondary); cursor: pointer; font: inherit; font-size: 12px;
+}
+.settings-commandbar-links button:hover { color: var(--text-primary); background: var(--bg-hover); }
+#settings-money, #settings-categories, #settings-ai, #settings-connect, #settings-danger { scroll-margin-top: 84px; }
+.settings-grid > .panel, .settings-row-3 > .panel { transition: border-color .2s ease, box-shadow .2s ease; }
+.settings-grid > .panel:hover, .settings-row-3 > .panel:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
+
 /* ===== NAVBAR ===== */
 .navbar {
   position: sticky;

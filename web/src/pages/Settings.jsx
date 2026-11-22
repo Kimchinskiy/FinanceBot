@@ -247,8 +247,16 @@ export default function Settings() {
 
   return (
     <>
+    <div className="settings-commandbar" aria-label="Разделы настроек">
+      <div className="settings-commandbar-title">Настройки</div>
+      <div className="settings-commandbar-links">
+        {[['settings-money', 'Деньги'], ['settings-categories', 'Категории'], ['settings-ai', 'AI'], ['settings-connect', 'Подключения'], ['settings-danger', 'Система']].map(([id, label]) => (
+          <button key={id} type="button" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>{label}</button>
+        ))}
+      </div>
+    </div>
     <div className="settings-grid">
-      <div className="panel">
+      <div className="panel" id="settings-theme">
         <div className="panel-header"><span><Icon name="palette" /> Тема</span></div>
         <div className="settings-form">
           <p className="text-muted">«Авто» переключает тему по владивостокскому времени: светлая с 6:00 до 18:00, тёмная — в остальное время.</p>
@@ -262,7 +270,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel" id="settings-money">
         <div className="panel-header"><span><Icon name="wallet" /> Балансы счетов</span></div>
         <div className="settings-form">
           <p className="text-muted">Стартовые балансы денег на каждый день. Доходы и расходы меняют их автоматически.</p>
@@ -274,7 +282,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel" id="settings-salary">
         <div className="panel-header"><span><Icon name="briefcase" /> Зарплата</span></div>
         <div className="settings-form">
           <label>Периодичность</label>
@@ -298,7 +306,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel" id="settings-categories">
         <div className="panel-header"><span><Icon name="tag" /> Категории доходов</span></div>
         <div className="settings-form">
           <div className="category-chips">
@@ -313,7 +321,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel" id="settings-categories-expenses">
         <div className="panel-header"><span><Icon name="tag" /> Категории расходов</span></div>
         <div className="settings-form">
           <div className="category-chips">
@@ -328,7 +336,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel" id="settings-rules">
         <div className="panel-header"><span><Icon name="target" /> Правила категорий по сумме</span></div>
         <div className="settings-form">
           <p className="text-muted">При добавлении расхода на сумму до указанной категория подставится автоматически. Например: «до 70 ₽ → Транспорт».</p>
@@ -352,7 +360,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel" id="settings-budgets">
         <div className="panel-header"><span><Icon name="chart" /> Бюджеты по категориям</span></div>
         <div className="settings-form">
           <p className="text-muted">Месячный лимит расходов. Оставьте поле пустым, если лимит не нужен.</p>
@@ -368,7 +376,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel" id="settings-ai">
         <div className="panel-header"><span><Icon name="bot" /> AI-помощник</span></div>
         <div className="settings-form">
           <p className="text-muted">Выберите провайдера, модель и укажите ключ API. Если ключ не задан — AI отвечает в базовом режиме.</p>
@@ -428,7 +436,7 @@ export default function Settings() {
     </div>
 
     <div className="settings-row-3">
-      <div className="panel">
+      <div className="panel" id="settings-telegram">
         <div className="panel-header"><span><Icon name="message" /> Telegram</span></div>
         <div className="settings-form">
           <p className="text-muted">
@@ -444,7 +452,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel" id="settings-connect">
         <div className="panel-header"><span><Icon name="receipt" /> Gmail и чеки</span></div>
         <div className="settings-form">
           <p className="text-muted">Finly сможет находить письма с чеками и готовить операции на проверку. Доступ запрашивается только для чтения почты.</p>
@@ -470,7 +478,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="panel panel-danger">
+      <div className="panel panel-danger" id="settings-danger">
         <div className="panel-header"><span><Icon name="database" /> Данные</span></div>
         <div className="settings-form">
           <button className="btn-danger" onClick={clearData}><Icon name="trash" /> Очистить все данные</button>
