@@ -948,6 +948,52 @@ body {
   padding: 20px;
   animation: fadeIn 0.2s ease;
 }
+
+.gmail-notice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(8, 10, 18, 0.58);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: gmail-notice-fade 0.22s ease-out;
+}
+
+.gmail-notice-card {
+  width: min(390px, 100%);
+  padding: 28px 24px 24px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  background: rgba(29, 29, 38, 0.94);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+  color: #fff;
+  animation: gmail-notice-pop 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.gmail-notice-icon {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #34c759;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.gmail-notice-card h2 { margin: 0 0 8px; font-size: 21px; }
+.gmail-notice-card p { margin: 0 0 20px; color: rgba(255, 255, 255, 0.72); line-height: 1.5; font-size: 14px; }
+.gmail-notice-card .btn-primary { min-width: 132px; }
+
+@keyframes gmail-notice-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gmail-notice-pop { from { transform: translateY(10px) scale(0.97); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal {
   background: var(--bg-surface);

@@ -40,6 +40,7 @@ function AppInner() {
   const [mandEditing, setMandEditing] = useState(null);
   const [debtOpen, setDebtOpen] = useState(false);
   const [debtEditing, setDebtEditing] = useState(null);
+  const [gmailConnectedNotice, setGmailConnectedNotice] = useState(false);
 
   const openQuickAdd = (type) => { setQuickType(type); setQuickEdit(null); setQuickOpen(true); };
   const openQuickEdit = (item) => { setQuickEdit(item); setQuickOpen(true); };
@@ -51,6 +52,17 @@ function AppInner() {
   useEffect(() => {
     if (token) startApp();
   }, [token, startApp]);
+
+  // OAuth возвращает пользователя в приложение с одноразовым query-параметром.
+  // Показываем именно уведомление — никакая операция автоматически не создаётся.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gmail') === 'connected') {
+      setPage('settings');
+      setGmailConnectedNotice(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Telegram MainButton
   useEffect(() => {
@@ -165,6 +177,17 @@ function AppInner() {
       <ConfirmDialog open={!!confirmState} text={confirmState?.text}
         onConfirm={() => resolveConfirm(true)}
         onCancel={() => resolveConfirm(false)} />
+
+      {gmailConnectedNotice && (
+        <div className="gmail-notice-overlay" role="dialog" aria-modal="true" aria-labelledby="gmail-notice-title">
+          <div className="gmail-notice-card">
+            <div className="gmail-notice-icon">✓</div>
+            <h2 id="gmail-notice-title">Google подключён</h2>
+            <p>Finly получил доступ к Gmail только для чтения. Новые операции автоматически не добавляются.</p>
+            <button className="btn-primary" onClick={() => setGmailConnectedNotice(false)}>Понятно</button>
+          </div>
+        </div>
+      )}
 
       {toasts.map(t => (
         <Toast key={t.id} message={t.msg} color={t.color} onDone={() => dismissToast(t.id)} />
