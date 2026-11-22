@@ -65,6 +65,7 @@ export default function Settings() {
   const [hasGmKey, setHasGmKey] = useState(false);
   const [gmail, setGmail] = useState({ configured: false, connected: false, email: null });
   const [gmailBusy, setGmailBusy] = useState(false);
+  const [gmailDrafts, setGmailDrafts] = useState([]);
 
   useEffect(() => {
     api('GET', '/ai/config').then(cfg => {
@@ -79,6 +80,10 @@ export default function Settings() {
   useEffect(() => {
     api('GET', '/integrations/gmail/status').then(setGmail).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (gmail.connected) api('GET', '/integrations/gmail/drafts').then(setGmailDrafts).catch(() => {});
+  }, [gmail.connected]);
 
   const connectGmail = async () => {
     setGmailBusy(true);
@@ -97,6 +102,27 @@ export default function Settings() {
       setGmail({ ...gmail, connected: false, email: null });
       toast('Gmail отключён');
     } catch { toast('Ошибка отключения Gmail', '#ff3b30'); }
+  };
+
+  const syncGmail = async () => {
+    setGmailBusy(true);
+    try {
+      const result = await api('POST', '/integrations/gmail/sync');
+      const drafts = await api('GET', '/integrations/gmail/drafts');
+      setGmailDrafts(drafts);
+      toast(result.created ? `Найдено чеков: ${result.created}` : 'Новых чеков не найдено');
+    } catch (e) { toast(e.message || 'Ошибка проверки Gmail', '#ff3b30'); }
+    finally { setGmailBusy(false); }
+  };
+
+  const approveGmailDraft = async (id) => {
+    try { await api('POST', `/integrations/gmail/drafts/${id}/approve`, { source: 'Карта' }); setGmailDrafts(d => d.filter(x => x.id !== id)); await reload('expenses'); await reload('accounts'); toast('Операция добавлена'); }
+    catch (e) { toast(e.message || 'Ошибка добавления операции', '#ff3b30'); }
+  };
+
+  const rejectGmailDraft = async (id) => {
+    try { await api('DELETE', `/integrations/gmail/drafts/${id}`); setGmailDrafts(d => d.filter(x => x.id !== id)); toast('Черновик отклонён'); }
+    catch { toast('Ошибка', '#ff3b30'); }
   };
 
   const changeProvider = async (p) => {
@@ -424,6 +450,14 @@ export default function Settings() {
           {gmail.connected ? (
             <>
               <p className="text-muted">✅ Подключён{gmail.email ? `: ${gmail.email}` : ''}</p>
+              <button className="btn-outline" onClick={syncGmail} disabled={gmailBusy}>{gmailBusy ? 'Проверяем…' : 'Проверить новые чеки'}</button>
+              {gmailDrafts.length > 0 && <div className="gmail-drafts">
+                <strong>Черновики чеков</strong>
+                {gmailDrafts.map(d => <div className="gmail-draft" key={d.id}>
+                  <div><b>{Number(d.amount).toLocaleString('ru-RU')} ₽</b><br /><span>{d.description || d.subject}</span></div>
+                  <div className="gmail-draft-actions"><button className="btn-primary btn-sm" onClick={() => approveGmailDraft(d.id)}>Добавить</button><button className="btn-outline btn-sm" onClick={() => rejectGmailDraft(d.id)}>Отклонить</button></div>
+                </div>)}
+              </div>}
               <button className="btn-outline" onClick={disconnectGmail}>Отключить Gmail</button>
             </>
           ) : (

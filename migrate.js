@@ -144,6 +144,22 @@ const statements = [
     updated_at     TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
+  `CREATE TABLE IF NOT EXISTS gmail_drafts (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    message_id TEXT NOT NULL,
+    sender TEXT DEFAULT '',
+    subject TEXT DEFAULT '',
+    amount REAL,
+    category TEXT DEFAULT 'Прочее',
+    description TEXT DEFAULT '',
+    datetime TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, message_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_gmail_drafts_user ON gmail_drafts (user_id, status)`,
 ];
 
 // Новые колонки (добавляются идемпотентно). SQLite не поддерживает
