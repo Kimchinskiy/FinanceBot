@@ -109,7 +109,7 @@ function AppInner() {
                   className={`nav-item ${page === p.id ? 'active' : ''} ${navigationMenuTriggerStyle()}`}
                   onClick={(e) => { e.preventDefault(); navigate(p.id); }}
                 >
-                  <span className="nav-ico">{NAV_ICONS[p.id]}</span><span className="nav-txt">{p.label}</span>
+                  <span className="nav-txt">{p.label}</span>
                 </NavigationMenuLink>
               </NavigationMenuItem>
             ))}
@@ -157,7 +157,7 @@ function AppInner() {
                 className={`nav-item ${page === p.id ? 'active' : ''} ${navigationMenuTriggerStyle()}`}
                 onClick={(e) => { e.preventDefault(); navigate(p.id); }}
               >
-                <span className="nav-ico">{NAV_ICONS[p.id]}</span><span className="nav-txt">{p.label}</span>
+                <span className="nav-txt">{p.label}</span>
               </NavigationMenuLink>
             </NavigationMenuItem>
           ))}
@@ -195,8 +195,6 @@ function AppInner() {
     </>
   );
 }
-
-const NAV_ICONS = { dashboard: '🏠', income: '📈', expenses: '📉', operations: '💱', mandatory: '📅', creditcards: '💳', assets: '💎', debts: '🤝', analytics: '📊', chat: '🧠', settings: '⚙️' };
 
 // Плоский порядок пунктов меню
 const NAV_ITEMS = [

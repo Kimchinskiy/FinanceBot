@@ -64,7 +64,6 @@ export default function Dashboard() {
       </div>
       <div className="cards-grid">
         <div className="card card-balance card-green">
-          <div className="card-icon">💵</div>
           <div className="card-body">
             <div className="card-label">Доступно (нал + безнал)</div>
             <div className="card-value">{fmt(spendable)}</div>
@@ -72,7 +71,6 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="card card-purple">
-          <div className="card-icon">📦</div>
           <div className="card-body">
             <div className="card-label">Активы / Инвестиции</div>
             <div className="card-value">{fmt(invest)}</div>
@@ -80,7 +78,6 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="card card-blue">
-          <div className="card-icon">🏦</div>
           <div className="card-body">
             <div className="card-label">Чистый капитал</div>
             <div className="card-value">{fmt(net)}</div>
@@ -88,7 +85,6 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="card card-green">
-          <div className="card-icon">📈</div>
           <div className="card-body">
             <div className="card-label">Доходы (месяц)</div>
             <div className="card-value">{fmt(totalIncome)}</div>
@@ -96,7 +92,6 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="card card-red">
-          <div className="card-icon">📉</div>
           <div className="card-body">
             <div className="card-label">Расходы (месяц)</div>
             <div className="card-value">{fmt(totalExpense)}</div>

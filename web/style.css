@@ -182,7 +182,7 @@ body {
 }
 
 /* Nav icons visible on both desktop and mobile */
-.nav-ico { display: inline-block; font-size: 16px; line-height: 1; }
+.nav-ico { display: none; }
 .nav-txt { display: inline; }
 
 /* Base UI NavigationMenu integration (flat nav) */
@@ -1196,7 +1196,7 @@ body {
     box-shadow: none;
   }
   .mobile-tabbar .nav-item:hover { background: none; }
-  .nav-ico { display: block; font-size: 22px; line-height: 1; }
+  .nav-ico { display: none; }
   .nav-txt { font-size: 10px; font-weight: 500; letter-spacing: -0.02em; white-space: nowrap; }
 
   /* Space for bottom bar + both FABs (+ chat FAB sit above the tab bar) so page
@@ -1217,7 +1217,7 @@ body {
     gap: 10px;
     padding: 16px;
   }
-  .card-icon { width: 36px; height: 36px; font-size: 17px; }
+  .card-icon { display: none; }
   .card-label { font-size: 12px; margin-bottom: 4px; }
   .card-value { font-size: 19px; }
   .card-balance { grid-column: 1 / -1; }
@@ -1478,7 +1478,11 @@ body {
   margin-top: 8px;
   opacity: 0.8;
 }
-.chat-welcome-hints p {
+.chat-welcome-hints button {
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  width: 100%;
   background: var(--bg-surface);
   padding: 8px 14px;
   border-radius: 8px;
@@ -1486,7 +1490,7 @@ body {
   cursor: pointer;
   transition: border-color var(--trans);
 }
-.chat-welcome-hints p:hover { border-color: var(--primary); }
+.chat-welcome-hints button:hover { border-color: var(--primary); color: var(--text-primary); }
 
 /* Input bar */
 .chat-input-bar {

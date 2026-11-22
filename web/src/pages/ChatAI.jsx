@@ -12,15 +12,15 @@ function Avatar({ children }) {
   );
 }
 
-function WelcomeScreen() {
+function WelcomeScreen({ onHint }) {
   return (
     <div className="chat-welcome">
       <div className="chat-welcome-icon">🧠</div>
       <p className="chat-welcome-title">Спросите о ваших финансах</p>
       <div className="chat-welcome-hints">
-        <p>«Могу ли я купить робот-пылесос за 7000?»</p>
-        <p>«Где я больше всего трачу?»</p>
-        <p>«Сколько у меня осталось до зарплаты?»</p>
+        <button type="button" onClick={() => onHint('Могу ли я купить робот-пылесос за 7000?')}>«Могу ли я купить робот-пылесос за 7000?»</button>
+        <button type="button" onClick={() => onHint('Где я больше всего трачу?')}>«Где я больше всего трачу?»</button>
+        <button type="button" onClick={() => onHint('Сколько у меня осталось до зарплаты?')}>«Сколько у меня осталось до зарплаты?»</button>
       </div>
     </div>
   );
@@ -113,7 +113,7 @@ export default function ChatAI() {
       </div>
 
       <div className="msg-scroller">
-        {messages.length === 0 && !sending && <WelcomeScreen />}
+        {messages.length === 0 && !sending && <WelcomeScreen onHint={setInput} />}
 
         <div className="msg-list">
           {messages.map((m, i) => (
