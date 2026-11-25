@@ -1,7 +1,6 @@
 // ===================================================================
 // FinanceBot — ai.js  (AI-рекомендации и чат через OpenRouter или Gemini)
-// Ключи API хранятся ТОЛЬКО на сервере (в settings под user_id='system' —
-// общий инстанс-ключ, не привязан к конкретному пользователю).
+// Ключи API хранятся только на сервере в пользовательских настройках.
 // Если ключ не задан или LLM недоступен — deterministic rule-based фолбэк.
 // В LLM уходят ТОЛЬКО агрегированные/анонимные суммы и категории (без ФИО/PII).
 // ===================================================================
@@ -20,44 +19,44 @@ function rub(n) {
 }
 
 // Читает общесистемную (user_id='system') настройку из settings, JSON-декодируя значение.
-async function getSystemSetting(query, key) {
+async function getSetting(query, key, userId) {
   try {
-    const r = await query("SELECT value FROM settings WHERE user_id='system' AND key=?", [key]);
+    const r = await query('SELECT value FROM settings WHERE user_id=? AND key=?', [userId, key]);
     const val = r.rows[0]?.value;
     if (val === undefined || val === null) return null;
     return JSON.parse(val);
   } catch { return null; }
 }
 
-async function getProvider(query) {
-  const p = await getSystemSetting(query, 'ai_provider');
+async function getProvider(query, userId) {
+  const p = await getSetting(query, 'ai_provider', userId);
   return p === 'gemini' ? 'gemini' : 'openrouter';
 }
 
-async function getOpenRouterKey(query) {
+async function getOpenRouterKey(query, userId) {
   if (OPENROUTER_ENV_KEY) return OPENROUTER_ENV_KEY;
-  const v = await getSystemSetting(query, 'openrouter_key');
+  const v = await getSetting(query, 'openrouter_key', userId);
   return typeof v === 'string' && v ? v : null;
 }
 
-async function getGeminiKey(query) {
+async function getGeminiKey(query, userId) {
   if (GEMINI_ENV_KEY) return GEMINI_ENV_KEY;
-  const v = await getSystemSetting(query, 'gemini_key');
+  const v = await getSetting(query, 'gemini_key', userId);
   return typeof v === 'string' && v ? v : null;
 }
 
-async function getModel(query, provider) {
+async function getModel(query, provider, userId) {
   const key = provider === 'gemini' ? 'gemini_model' : 'openrouter_model';
-  const v = await getSystemSetting(query, key);
+  const v = await getSetting(query, key, userId);
   if (typeof v === 'string' && v) return v;
   return provider === 'gemini' ? GEMINI_ENV_MODEL : OPENROUTER_ENV_MODEL;
 }
 
 // Вызов OpenRouter chat completions. Возвращает текст или null при ошибке/отсутствии ключа.
-async function openRouterChat(messages, query, temperature = 0.7) {
-  const key = await getOpenRouterKey(query);
+async function openRouterChat(messages, query, userId, temperature = 0.7) {
+  const key = await getOpenRouterKey(query, userId);
   if (!key) return null;
-  const model = await getModel(query, 'openrouter');
+  const model = await getModel(query, 'openrouter', userId);
   try {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -79,10 +78,10 @@ async function openRouterChat(messages, query, temperature = 0.7) {
 
 // Вызов Gemini generateContent. Переводит OpenAI-подобные messages (system/user/assistant)
 // в формат Gemini (systemInstruction + contents с ролями user/model).
-async function geminiChat(messages, query, temperature = 0.7) {
-  const key = await getGeminiKey(query);
+async function geminiChat(messages, query, userId, temperature = 0.7) {
+  const key = await getGeminiKey(query, userId);
   if (!key) return null;
-  const model = await getModel(query, 'gemini');
+  const model = await getModel(query, 'gemini', userId);
   const systemText = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
   const contents = messages
     .filter(m => m.role !== 'system')
@@ -110,9 +109,9 @@ async function geminiChat(messages, query, temperature = 0.7) {
 }
 
 // Единая точка входа: выбирает провайдера (OpenRouter/Gemini) по настройке ai_provider.
-async function llmChat(messages, query, temperature = 0.7) {
-  const provider = await getProvider(query);
-  return provider === 'gemini' ? geminiChat(messages, query, temperature) : openRouterChat(messages, query, temperature);
+async function llmChat(messages, query, userId, temperature = 0.7) {
+  const provider = await getProvider(query, userId);
+  return provider === 'gemini' ? geminiChat(messages, query, userId, temperature) : openRouterChat(messages, query, userId, temperature);
 }
 
 // Анонимизированная сводка пользователя за последние 3 месяца
@@ -274,11 +273,11 @@ router.get('/config', async (req, res) => {
   const { query } = req.app.locals.db;
   try {
     const [provider, openrouterModel, geminiModel, orKey, gmKey] = await Promise.all([
-      getProvider(query),
-      getModel(query, 'openrouter'),
-      getModel(query, 'gemini'),
-      getOpenRouterKey(query),
-      getGeminiKey(query),
+      getProvider(query, req.userId),
+      getModel(query, 'openrouter', req.userId),
+      getModel(query, 'gemini', req.userId),
+      getOpenRouterKey(query, req.userId),
+      getGeminiKey(query, req.userId),
     ]);
     res.json({
       provider,
@@ -338,7 +337,7 @@ router.post('/advice', async (req, res) => {
     const aiText = await llmChat([
       { role: 'system', content: systemAdvicePrompt },
       { role: 'user', content: 'Вот моя финансовая сводка:\n\n' + summary },
-    ], query);
+    ], query, req.userId);
     if (aiText) {
       const tips = aiText.split('\n').map(s => s.replace(/^[-•]\s*/, '').trim()).filter(Boolean);
       return res.json({ tips, source: 'ai' });
@@ -386,7 +385,7 @@ ${summary}`;
     }
     messages.push({ role: 'user', content: message });
 
-    const reply = await llmChat(messages, query, 0.8);
+    const reply = await llmChat(messages, query, req.userId, 0.8);
     if (reply) return res.json({ reply, source: 'ai' });
 
     // Fallback-ответ без LLM
