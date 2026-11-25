@@ -63,6 +63,8 @@ export default function Settings() {
   const [orModel, setOrModel] = useState('openai/gpt-4o-mini');
   const [gmModel, setGmModel] = useState('gemini-2.0-flash');
   const [hasOrKey, setHasOrKey] = useState(false);
+  const [orKeyVerified, setOrKeyVerified] = useState(false);
+  const [orKeyBusy, setOrKeyBusy] = useState(false);
   const [hasGmKey, setHasGmKey] = useState(false);
   const [gmail, setGmail] = useState({ configured: false, connected: false, email: null });
   const [gmailBusy, setGmailBusy] = useState(false);
@@ -74,6 +76,7 @@ export default function Settings() {
       setOrModel(cfg.openrouterModel || 'openai/gpt-4o-mini');
       setGmModel(cfg.geminiModel || 'gemini-2.0-flash');
       setHasOrKey(!!cfg.hasOpenrouterKey);
+      setOrKeyVerified(!!cfg.hasOpenrouterKey);
       setHasGmKey(!!cfg.hasGeminiKey);
     }).catch(() => {});
   }, []);
@@ -136,6 +139,22 @@ export default function Settings() {
     const key = provider === 'gemini' ? 'gemini_model' : 'openrouter_model';
     try { await api('PUT', `/settings/${key}`, { value }); toast('Модель сохранена!'); }
     catch { toast('Ошибка', '#ff3b30'); }
+  };
+
+  const verifyOpenRouterKey = async (value, clearEl) => {
+    if (!value) { toast('Введите ключ OpenRouter', '#ff3b30'); return; }
+    setOrKeyBusy(true);
+    try {
+      await api('POST', '/ai/verify-openrouter', { key: value });
+      await api('PUT', '/settings/openrouter_key', { value });
+      setHasOrKey(true);
+      setOrKeyVerified(true);
+      if (clearEl) clearEl.value = '';
+      toast('Ключ OpenRouter проверен и сохранён');
+    } catch (e) {
+      setOrKeyVerified(false);
+      toast(e.message || 'Ключ OpenRouter не прошёл проверку', '#ff3b30');
+    } finally { setOrKeyBusy(false); }
   };
 
   const saveKey = async (provider, value, clearEl) => {
@@ -379,7 +398,7 @@ export default function Settings() {
       <div className="panel" id="settings-ai">
         <div className="panel-header"><span><Icon name="bot" /> AI-помощник</span></div>
         <div className="settings-form">
-          <p className="text-muted">Выберите провайдера, модель и укажите ключ API. Если ключ не задан — AI отвечает в базовом режиме.</p>
+          <p className="text-muted">Сначала укажите и проверьте ключ API, затем выберите модель.</p>
 
           <div className={`source-toggle ${aiProvider === 'gemini' ? 'is-second' : ''}`} role="tablist" style={{ maxWidth: 280 }}>
             <button type="button" className={`source-opt ${aiProvider === 'openrouter' ? 'active' : ''}`} onClick={() => changeProvider('openrouter')}>OpenRouter</button>
@@ -390,12 +409,12 @@ export default function Settings() {
           {aiProvider === 'openrouter' ? (
             <>
               <label style={{ marginTop: 12, display: 'block' }}>Модель</label>
-              <select className="input-field" value={OPENROUTER_MODEL_PRESETS.includes(orModel) ? orModel : '__custom'}
+              <select className="input-field" disabled={!orKeyVerified} value={OPENROUTER_MODEL_PRESETS.includes(orModel) ? orModel : '__custom'}
                 onChange={(e) => { if (e.target.value !== '__custom') { setOrModel(e.target.value); saveModel('openrouter', e.target.value); } }}>
                 {OPENROUTER_MODEL_PRESETS.map(m => <option key={m} value={m}>{m}</option>)}
                 <option value="__custom">Другая модель…</option>
               </select>
-              <input type="text" className="input-field" style={{ marginTop: 6 }} value={orModel}
+              <input type="text" className="input-field" disabled={!orKeyVerified} style={{ marginTop: 6 }} value={orModel}
                 onChange={(e) => setOrModel(e.target.value)}
                 onBlur={() => saveModel('openrouter', orModel)}
                 placeholder="id модели OpenRouter" />
@@ -403,10 +422,10 @@ export default function Settings() {
               <label style={{ marginTop: 12, display: 'block' }}>Ключ API {hasOrKey && <span className="text-muted" style={{ fontWeight: 400 }}>(сохранён)</span>}</label>
               <div className="add-category-row">
                 <input type="password" className="input-field" id="or-key-input" placeholder="sk-or-v1-..."
-                  onKeyDown={(e) => { if (e.key === 'Enter') saveKey('openrouter', e.target.value.trim(), e.target); }} />
-                <button className="btn-outline" onClick={() => { const el = document.getElementById('or-key-input'); saveKey('openrouter', el?.value?.trim(), el); }}>Сохранить</button>
+                  onKeyDown={(e) => { if (e.key === 'Enter') verifyOpenRouterKey(e.target.value.trim(), e.target); }} />
+                <button className="btn-outline" disabled={orKeyBusy} onClick={() => { const el = document.getElementById('or-key-input'); verifyOpenRouterKey(el?.value?.trim(), el); }}>{orKeyBusy ? 'Проверяем…' : hasOrKey ? 'Проверить новый ключ' : 'Проверить и сохранить'}</button>
               </div>
-              <p className="text-muted" style={{ fontSize: 11, marginTop: 4 }}>Получить ключ: <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">openrouter.ai/keys</a>. Введите и нажмите Enter или кнопку.</p>
+              <p className="text-muted" style={{ fontSize: 11, marginTop: 4 }}>{orKeyVerified ? 'Ключ проверен. Теперь можно выбрать модель.' : 'Сначала проверьте ключ. Получить его можно на '} {!orKeyVerified && <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">openrouter.ai/keys</a>}</p>
             </>
           ) : (
             <>

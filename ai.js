@@ -292,6 +292,30 @@ router.get('/config', async (req, res) => {
   }
 });
 
+// POST /api/ai/verify-openrouter — проверяет ключ напрямую через OpenRouter.
+router.post('/verify-openrouter', async (req, res) => {
+  const key = String(req.body?.key || '').trim();
+  if (!key) return res.status(400).json({ error: 'Введите ключ OpenRouter' });
+  try {
+    const result = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'HTTP-Referer': APP_URL,
+        'X-Title': 'FinanceBot',
+      },
+    });
+    if (!result.ok) {
+      let message = 'OpenRouter не принял ключ';
+      try { message = (await result.json())?.error?.message || message; } catch {}
+      return res.status(400).json({ error: message });
+    }
+    const data = await result.json();
+    res.json({ ok: true, models: Array.isArray(data?.data) ? data.data : [] });
+  } catch {
+    res.status(502).json({ error: 'Не удалось связаться с OpenRouter' });
+  }
+});
+
 // POST /api/ai/advice — еженедельный/месячный дайджест из 3+ советов
 router.post('/advice', async (req, res) => {
   const { query } = req.app.locals.db;
